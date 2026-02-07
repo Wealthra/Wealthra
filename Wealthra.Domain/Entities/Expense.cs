@@ -1,0 +1,17 @@
+﻿using System;
+using Wealthra.Domain.Common;
+
+namespace Wealthra.Domain.Entities
+{
+    public class Expense : AuditableEntity
+    {
+        public string Description { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentMethod { get; set; }
+        public bool IsRecurring { get; set; }
+        public DateTime TransactionDate { get; set; }
+
+        public int CategoryId { get; set; }
+        public virtual Category Category { get; set; }
+    }
+}
