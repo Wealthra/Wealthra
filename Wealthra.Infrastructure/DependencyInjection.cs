@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Infrastructure.Identity.Models;
+using Wealthra.Infrastructure.Identity.Services;
 using Wealthra.Infrastructure.Persistence;
 using Wealthra.Infrastructure.Services;
 
@@ -35,6 +36,8 @@ namespace Wealthra.Infrastructure
             // 3. Register Infrastructure Services
             services.AddTransient<DateTimeService>();
             services.AddTransient<EmailService>();
+            services.AddTransient<IIdentityService, IdentityService>();
+            services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             return services;
