@@ -9,5 +9,7 @@ namespace Wealthra.Application.Common.Interfaces
         Task<(Result Result, string UserId)> CreateUserAsync(string userName, string password);
         Task<Result> DeleteUserAsync(string userId);
         // We will add Login/Token generation here later
+
+        Task<string?> AuthenticateAsync(string email, string password);
     }
 }
