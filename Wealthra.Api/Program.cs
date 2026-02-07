@@ -1,4 +1,5 @@
 using Serilog;
+using Wealthra.Api.Infrastructure;
 using Wealthra.Application;
 using Wealthra.Infrastructure;
 
@@ -12,6 +13,8 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails(); // Required for built-in ProblemDetails support
 
 // 3. Add Layers (We will write these extension methods in the next steps)
 builder.Services.AddApplicationLayer();
