@@ -1,6 +1,6 @@
 using Serilog;
-using Wealthra.Application;    // You will create this extension method later
-using Wealthra.Infrastructure; // You will create this extension method later
+using Wealthra.Application;
+using Wealthra.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +14,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // 3. Add Layers (We will write these extension methods in the next steps)
-// builder.Services.AddApplicationLayer();
-// builder.Services.AddInfrastructureLayer(builder.Configuration);
+builder.Services.AddApplicationLayer();
+builder.Services.AddInfrastructureLayer(builder.Configuration);
 
 var app = builder.Build();
 

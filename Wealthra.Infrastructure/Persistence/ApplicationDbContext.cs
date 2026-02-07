@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Wealthra.Application.Common.Interfaces;
 using Wealthra.Domain.Common;
 using Wealthra.Domain.Entities;
 using Wealthra.Infrastructure.Identity.Models;
@@ -11,7 +12,7 @@ using Wealthra.Infrastructure.Services; // For DateTimeService
 namespace Wealthra.Infrastructure.Persistence
 {
     // Inherit from IdentityDbContext to get User/Role tables automatically
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplicationDbContext
     {
         private readonly DateTimeService _dateTimeService;
         // We will inject CurrentUserService here later to get the UserId
