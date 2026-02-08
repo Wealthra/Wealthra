@@ -1,4 +1,5 @@
 ﻿using Wealthra.Domain.Common;
+using System;
 using System.Collections.Generic;
 
 namespace Wealthra.Domain.Entities

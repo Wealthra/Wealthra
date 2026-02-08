@@ -52,7 +52,11 @@ namespace Wealthra.Infrastructure
                 };
             });
 
-            // 4. Services
+            // 4. Caching
+            services.AddDistributedMemoryCache(); 
+            services.AddScoped<ICacheService, CacheService>();
+
+            // 5. Services
             services.AddTransient<DateTimeService>();
             services.AddTransient<IIdentityService, IdentityService>();
             services.AddTransient<TokenGenerator>();

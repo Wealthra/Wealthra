@@ -16,6 +16,7 @@
   <ItemGroup>
     <Folder Include="Common\Mappings\" />
     <Folder Include="Features\Budgets\" />
+    <Folder Include="Features\Category\" />
   </ItemGroup>
 
   <PropertyGroup>
