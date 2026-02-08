@@ -143,6 +143,28 @@ namespace Wealthra.Infrastructure.Identity.Services
                 user.CreatedAt
             );
         }
+
+        public async Task<Result> UpdateUserAsync(string userId, string firstName, string lastName, string? avatarUrl)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return Result.Failure(new[] { "User not found" });
+
+            user.FirstName = firstName;
+            user.LastName = lastName;
+            user.AvatarUrl = avatarUrl;
+
+            var result = await _userManager.UpdateAsync(user);
+            return result.ToApplicationResult();
+        }
+
+        public async Task<Result> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return Result.Failure(new[] { "User not found" });
+
+            var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            return result.ToApplicationResult();
+        }
     }
 
     public static class IdentityResultExtensions

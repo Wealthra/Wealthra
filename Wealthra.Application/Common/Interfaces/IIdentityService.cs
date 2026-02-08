@@ -12,5 +12,7 @@ namespace Wealthra.Application.Common.Interfaces
         Task<(Result Result, AuthResponse Response)> RefreshTokenAsync(string token, string refreshToken);
         Task<Result> DeleteUserAsync(string userId);
         Task<UserDto?> GetUserDetailsAsync(string userId);
+        Task<Result> UpdateUserAsync(string userId, string firstName, string lastName, string? avatarUrl);
+        Task<Result> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
     }
 }

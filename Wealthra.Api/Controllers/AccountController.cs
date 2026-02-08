@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Wealthra.Application.Features.Identity.Commands.Login;
 using Wealthra.Application.Features.Identity.Commands.RefreshToken;
 using Wealthra.Application.Features.Identity.Commands.Register;
+using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
 
@@ -76,6 +77,23 @@ namespace Wealthra.Api.Controllers
         {
             var response = await Mediator.Send(new GetMyProfileQuery());
             return Ok(response);
+        }
+
+
+        [Authorize]
+        [HttpPut("update-profile")]
+        public async Task<ActionResult> UpdateProfile(UpdateUserCommand command)
+        {
+            await Mediator.Send(command);
+            return NoContent();
+        }
+
+        [Authorize]
+        [HttpPut("update-password")]
+        public async Task<ActionResult> UpdatePassword(UpdatePasswordCommand command)
+        {
+            await Mediator.Send(command);
+            return NoContent();
         }
     }
 }
