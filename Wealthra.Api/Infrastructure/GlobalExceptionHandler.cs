@@ -29,6 +29,9 @@ namespace Wealthra.Api.Infrastructure
                 problemDetails.Status = StatusCodes.Status400BadRequest;
                 problemDetails.Detail = "One or more validation errors occurred.";
                 problemDetails.Extensions["errors"] = validationException.Errors;
+                _logger.LogWarning(
+                    "Validation failed for {RequestPath}. Errors: {@Errors}",httpContext.Request.Path, validationException.Errors
+                );
             }
             else if (exception is UnauthorizedAccessException)
             {

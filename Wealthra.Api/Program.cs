@@ -34,9 +34,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
-app.UseSerilogRequestLogging(); // Logs every HTTP request
 app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 
 namespace Wealthra.Application.Common.Behaviours
@@ -24,8 +25,8 @@ namespace Wealthra.Application.Common.Behaviours
             var requestName = typeof(TRequest).Name;
             var userId = _currentUserService.UserId ?? string.Empty;
 
-            _logger.LogInformation("Wealthra Request: {Name} {@UserId} {@Request}",
-                requestName, userId, request);
+            //Log entry (Info)
+            _logger.LogInformation("Wealthra Request: {Name} {@UserId} {@Request}", requestName, userId, request);
 
             var timer = Stopwatch.StartNew();
 
@@ -33,17 +34,15 @@ namespace Wealthra.Application.Common.Behaviours
             {
                 var response = await next();
                 timer.Stop();
-
-                if (timer.ElapsedMilliseconds > 500) // Performance Warning
-                {
-                    _logger.LogWarning("Wealthra Long Running Request: {Name} ({ElapsedMilliseconds} milliseconds) {@UserId} {@Request}",
-                       requestName, timer.ElapsedMilliseconds, userId, request);
-                }
-
                 return response;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
+                if (ex is ValidationException || ex is NotFoundException)
+                {
+                    throw;
+                }
+
                 _logger.LogError(ex, "Wealthra Request Failure: {Name} {@UserId}", requestName, userId);
                 throw;
             }
