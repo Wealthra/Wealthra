@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
+using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Infrastructure.Identity.Models;
 
 namespace Wealthra.Infrastructure.Identity.Services
@@ -28,13 +32,15 @@ namespace Wealthra.Infrastructure.Identity.Services
             return user?.UserName;
         }
 
-        public async Task<(Result Result, string UserId)> CreateUserAsync(string email, string password)
+        public async Task<(Result Result, string UserId)> CreateUserAsync(string email, string password, string firstName, string lastName)
         {
             var user = new ApplicationUser
             {
                 UserName = email,
                 Email = email,
-                CreatedAt = System.DateTime.UtcNow
+                FirstName = firstName,
+                LastName = lastName,
+                CreatedAt = DateTime.UtcNow
             };
 
             var result = await _userManager.CreateAsync(user, password);
@@ -42,14 +48,76 @@ namespace Wealthra.Infrastructure.Identity.Services
             return (result.ToApplicationResult(), user.Id);
         }
 
+        public async Task<(Result Result, AuthResponse Response)> LoginAsync(string email, string password)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return (Result.Failure(new[] { "Invalid credentials" }), null);
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, password, false);
+            if (!result.Succeeded)
+                return (Result.Failure(new[] { "Invalid credentials" }), null);
+
+            return await GenerateAuthResponseAsync(user);
+        }
+
+        public async Task<(Result Result, AuthResponse Response)> RefreshTokenAsync(string token, string refreshToken)
+        {
+            var principal = _tokenGenerator.GetPrincipalFromExpiredToken(token);
+            if (principal == null)
+                return (Result.Failure(new[] { "Invalid access token" }), null);
+
+            var email = principal.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
+                        ?? principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value
+                        ?? principal.Identity?.Name;
+
+            if (string.IsNullOrEmpty(email))
+                return (Result.Failure(new[] { "Invalid token claims" }), null);
+
+            var user = await _userManager.Users
+                .Include(u => u.RefreshTokens)
+                .SingleOrDefaultAsync(u => u.Email == email);
+
+            if (user == null)
+                return (Result.Failure(new[] { "User not found" }), null);
+
+            var storedToken = user.RefreshTokens.SingleOrDefault(x => x.Token == refreshToken);
+
+            if (storedToken == null)
+                return (Result.Failure(new[] { "Refresh token not found in database" }), null);
+
+            if (!storedToken.IsActive)
+                return (Result.Failure(new[] { "Refresh token is expired or revoked" }), null);
+
+            storedToken.Revoked = DateTime.UtcNow;
+
+            return await GenerateAuthResponseAsync(user);
+        }
+
+        private async Task<(Result Result, AuthResponse Response)> GenerateAuthResponseAsync(ApplicationUser user)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+            var accessToken = _tokenGenerator.GenerateToken(user, roles);
+            var refreshToken = _tokenGenerator.GenerateRefreshToken();
+
+            refreshToken.UserId = user.Id;
+
+            user.RefreshTokens.Add(refreshToken);
+
+            await _userManager.UpdateAsync(user);
+
+            return (Result.Success(), new AuthResponse(
+                user.Id,
+                user.Email,
+                accessToken,
+                refreshToken.Token,
+                refreshToken.Expires));
+        }
+
         public async Task<Result> DeleteUserAsync(string userId)
         {
             var user = await _userManager.FindByIdAsync(userId);
-            if (user != null)
-            {
-                return await DeleteUserAsync(user);
-            }
-            return Result.Success();
+            return user != null ? await DeleteUserAsync(user) : Result.Success();
         }
 
         public async Task<Result> DeleteUserAsync(ApplicationUser user)
@@ -58,30 +126,32 @@ namespace Wealthra.Infrastructure.Identity.Services
             return result.ToApplicationResult();
         }
 
-        // New method specific to Infrastructure (not in generic interface if we want to keep Application layer unaware of JWT details, 
-        // but for simplicity we will handle the Command handler logic here or inject this service)
-        public async Task<string?> AuthenticateAsync(string email, string password)
+        public async Task<UserDto?> GetUserDetailsAsync(string userId)
         {
-            var user = await _userManager.FindByEmailAsync(email);
+            var user = await _userManager.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(u => u.Id == userId);
+
             if (user == null) return null;
 
-            var result = await _signInManager.CheckPasswordSignInAsync(user, password, false);
-
-            if (!result.Succeeded) return null;
-
-            var roles = await _userManager.GetRolesAsync(user);
-            return _tokenGenerator.GenerateToken(user, roles);
+            return new UserDto(
+                user.Id,
+                user.Email!,
+                user.FirstName,
+                user.LastName,
+                user.AvatarUrl,
+                user.CreatedAt
+            );
         }
     }
 
-    // Helper extension to map IdentityResult to our Application Result
     public static class IdentityResultExtensions
     {
         public static Result ToApplicationResult(this IdentityResult result)
         {
             return result.Succeeded
                 ? Result.Success()
-                : Result.Failure(System.Linq.Enumerable.Select(result.Errors, e => e.Description));
+                : Result.Failure(result.Errors.Select(e => e.Description));
         }
     }
 }

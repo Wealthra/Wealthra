@@ -1,15 +1,12 @@
 ﻿using FluentValidation;
 using MediatR;
-using System.Threading;
-using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Identity.Models;
 
 namespace Wealthra.Application.Features.Identity.Commands.Login
 {
-    // DTO
-    public record LoginUserCommand(string Email, string Password) : IRequest<string>;
+    public record LoginUserCommand(string Email, string Password) : IRequest<AuthResponse>;
 
-    // Validator
     public class LoginUserCommandValidator : AbstractValidator<LoginUserCommand>
     {
         public LoginUserCommandValidator()
@@ -19,8 +16,7 @@ namespace Wealthra.Application.Features.Identity.Commands.Login
         }
     }
 
-    // Handler
-    public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, string>
+    public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthResponse>
     {
         private readonly IIdentityService _identityService;
 
@@ -29,16 +25,17 @@ namespace Wealthra.Application.Features.Identity.Commands.Login
             _identityService = identityService;
         }
 
-        public async Task<string> Handle(LoginUserCommand request, CancellationToken cancellationToken)
+        public async Task<AuthResponse> Handle(LoginUserCommand request, CancellationToken cancellationToken)
         {
-            var token = await _identityService.AuthenticateAsync(request.Email, request.Password);
+            var (result, response) = await _identityService.LoginAsync(request.Email, request.Password);
 
-            if (token == null)
+            if (!result.Succeeded)
             {
+                // Throw Unauthorized to trigger 401
                 throw new UnauthorizedAccessException("Invalid credentials");
             }
 
-            return token;
+            return response;
         }
     }
 }
