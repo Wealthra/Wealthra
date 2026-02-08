@@ -35,6 +35,12 @@ namespace Wealthra.Api.Infrastructure
                 problemDetails.Title = "Unauthorized";
                 problemDetails.Status = StatusCodes.Status401Unauthorized;
             }
+            else if (exception is NotFoundException notFoundEx)
+            {
+                problemDetails.Title = "Not Found";
+                problemDetails.Status = StatusCodes.Status404NotFound;
+                problemDetails.Detail = notFoundEx.Message;
+            }
             else
             {
                 // Fallback for unhandled errors (500)

@@ -17,8 +17,8 @@ namespace Wealthra.Application
                 cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
 
                 // Register Pipeline Behaviors (Order matters!)
-                // 1. Logging (Not implemented here, but would go first)
                 // 2. Validation (Throws exception if invalid)
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
             });
 

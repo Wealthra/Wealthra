@@ -2,6 +2,7 @@ using Serilog;
 using Wealthra.Api.Infrastructure;
 using Wealthra.Application;
 using Wealthra.Infrastructure;
+using Wealthra.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,9 +15,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddProblemDetails(); // Required for built-in ProblemDetails support
+builder.Services.AddProblemDetails(); 
 
-// 3. Add Layers (We will write these extension methods in the next steps)
+// --- HEALTH CHECKS SERVICE ---
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>();
+
+// 3. Add Layers
 builder.Services.AddApplicationLayer();
 builder.Services.AddInfrastructureLayer(builder.Configuration);
 
@@ -29,8 +34,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler();
+
 app.UseSerilogRequestLogging(); // Logs every HTTP request
 app.UseHttpsRedirection();
+
+app.MapHealthChecks("/health");
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
