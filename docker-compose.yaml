@@ -26,7 +26,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   api:
-    image: ghcr.io/wealthra/wealthra-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: wealthra_api
     restart: unless-stopped
     environment:

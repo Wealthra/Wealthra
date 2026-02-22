@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -14,6 +14,7 @@ namespace Wealthra.Api.Controllers
 {
     public class AccountController : ApiControllerBase
     {
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<ActionResult<string>> Register(RegisterUserCommand command)
         {
@@ -21,6 +22,7 @@ namespace Wealthra.Api.Controllers
             return CreatedAtAction(nameof(Login), new { id = userId }, userId);
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponse>> Login(LoginUserCommand command)
         {
@@ -31,6 +33,7 @@ namespace Wealthra.Api.Controllers
             return Ok(new { response.Id, response.Email, response.Token });
         }
 
+        [AllowAnonymous]
         [HttpPost("refresh-token")]
         public async Task<ActionResult<AuthResponse>> RefreshToken()
         {
@@ -51,6 +54,7 @@ namespace Wealthra.Api.Controllers
             return Ok(new { response.Id, response.Email, response.Token });
         }
 
+        [AllowAnonymous]
         [HttpPost("revoke-token")]
         public IActionResult RevokeToken()
         {
@@ -71,7 +75,6 @@ namespace Wealthra.Api.Controllers
             Response.Cookies.Append("refresh-token", token, cookieOptions);
         }
 
-        [Authorize]
         [HttpGet("me")]
         public async Task<ActionResult<UserDto>> GetMe()
         {
@@ -80,7 +83,6 @@ namespace Wealthra.Api.Controllers
         }
 
 
-        [Authorize]
         [HttpPut("update-profile")]
         public async Task<ActionResult> UpdateProfile(UpdateUserCommand command)
         {
@@ -88,7 +90,6 @@ namespace Wealthra.Api.Controllers
             return NoContent();
         }
 
-        [Authorize]
         [HttpPut("update-password")]
         public async Task<ActionResult> UpdatePassword(UpdatePasswordCommand command)
         {

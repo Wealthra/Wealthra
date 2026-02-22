@@ -1,69 +1,99 @@
 using Serilog;
-using Wealthra.Api.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
-using System.Collections.Generic;
+using Wealthra.Api.Infrastructure;
 using Wealthra.Application;
 using Wealthra.Infrastructure;
 using Wealthra.Infrastructure.Persistence;
+using Microsoft.OpenApi; // Note the change to Models namespace
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Setup Serilog (Logging)
+// 1. Setup Serilog
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
 // 2. Add Services to DI Container
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+
+// OpenAPI
+// Native .NET 10 OpenAPI replacement
+builder.Services.AddOpenApi(options =>
 {
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // 1. DOCUMENT TRANSFORMER: Defines the Security Scheme
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' followed by space and your token.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        document.Info = new OpenApiInfo
+        {
+            Title = "Wealthra API",
+            Version = "v1",
+            Description = "Wealthra Wealth Management API"
+        };
+
+        var scheme = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Enter your JWT token (e.g. eyJhbG...)"
+        };
+
+        // Safely initialize and add the scheme to the document components
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = scheme;
+
+        return Task.CompletedTask;
     });
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    // 2. OPERATION TRANSFORMER: Applies the lock dynamically based on attributes
+    options.AddOperationTransformer((operation, context, cancellationToken) =>
     {
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+        
+        var hasAuthorize = metadata.OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>().Any();
+        var allowAnonymous = metadata.OfType<Microsoft.AspNetCore.Authorization.IAllowAnonymous>().Any();
+
+        if (hasAuthorize && !allowAnonymous)
         {
-            new OpenApiSecurityScheme
+            operation.Security ??= new List<OpenApiSecurityRequirement>();
+            
+            operation.Security.Add(new OpenApiSecurityRequirement
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new List<string>()
+                [new OpenApiSecuritySchemeReference("Bearer", context.Document)] = new List<string>()
+            });
         }
+
+        return Task.CompletedTask;
     });
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails(); 
 
-// --- HEALTH CHECKS SERVICE ---
+// --- HEALTH CHECKS ---
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>();
 
-// 3. Add Layers
+// 3. Add Application Layers
 builder.Services.AddApplicationLayer();
 builder.Services.AddInfrastructureLayer(builder.Configuration);
 
 var app = builder.Build();
 
 // 4. Configure Request Pipeline
-app.UseSwagger();
-app.UseSwaggerUI();
+// Generates the JSON spec at /openapi/v1.json
+app.MapOpenApi();
+// Visual UI for the spec
+app.UseSwaggerUI(options =>
+{
+        options.SwaggerEndpoint("/openapi/v1.json", "Wealthra API v1");
+});
 
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
-//app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Uncomment if using HTTPS
 
 app.MapHealthChecks("/health");
 
@@ -71,15 +101,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-
-// Apply pending migrations on startup and seed data
+// 5. Database Migration and Seeding
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        // 1. Migrate Database
-        var context = services.GetRequiredService<Wealthra.Infrastructure.Persistence.ApplicationDbContext>();
+        var context = services.GetRequiredService<ApplicationDbContext>();
         if (context.Database.IsRelational())
         {
             await context.Database.MigrateAsync();
