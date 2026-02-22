@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    # Proxy all incoming traffic on port 80 directly to the API container
+    command: caddy reverse-proxy --from :80 --to http://api:8080
+    depends_on:
+      - api
+    volumes:
+      - aspnet_keys:/root/.aspnet/DataProtection-Keys
+
+  db:
+    image: postgres:15-alpine
+    container_name: wealthra_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wealthra_user
+      POSTGRES_PASSWORD: YourStrongDbPassword123!
+      POSTGRES_DB: wealthra_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wealthra_api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=wealthra_db;Username=wealthra_user;Password=YourStrongDbPassword123!
+      - JwtSettings__Secret=REPLACE_THIS_WITH_A_SUPER_SECRET_KEY_AT_LEAST_32_CHARS_LONG
+      - JwtSettings__Issuer=WealthraApi
+      - JwtSettings__Audience=WealthraApp
+      - JwtSettings__ExpiryMinutes=60
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+  aspnet_keys:

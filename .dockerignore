@@ -1,0 +1,36 @@
+# Ignore build outputs
+bin/
+obj/
+artifacts/
+publish/
+
+# IDE and editor folders
+.vs
+.vscode
+
+# Git
+.git
+
+# NuGet / packages
+**/[Pp]ackages/*
+*.nupkg
+
+# Node
+node_modules
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# User and Visual Studio files
+*.user
+*.suo
+*.userosscache
+
+# Environment / secrets
+.env
+*.env
+
+# Other
+*.dbmdl
+*.pidb
