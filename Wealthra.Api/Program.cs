@@ -15,6 +15,17 @@ builder.Host.UseSerilog((context, configuration) =>
 // 2. Add Services to DI Container
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true) 
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // OpenAPI
 // Native .NET 10 OpenAPI replacement
 builder.Services.AddOpenApi(options =>
@@ -94,6 +105,7 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
 // app.UseHttpsRedirection(); // Uncomment if using HTTPS
+app.UseCors("AllowFrontend");
 
 app.MapHealthChecks("/health");
 
