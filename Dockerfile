@@ -17,6 +17,16 @@ RUN dotnet publish "Wealthra.Api.csproj" -c Release -o /app/publish /p:UseAppHos
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+
+# Install Tesseract OCR, language packs, and ImageMagick for preprocessing
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-tur \
+    libtesseract-dev \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 
 # Expose port 8080 (default for .NET 8+)

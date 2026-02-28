@@ -62,6 +62,9 @@ namespace Wealthra.Infrastructure
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
+            // 6. OCR
+            services.AddSingleton<IOcrService, TesseractOcrService>();
+
             return services;
         }
     }
