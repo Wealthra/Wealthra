@@ -27,6 +27,11 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     && rm -rf /var/lib/apt/lists/*
 
+# Relax ImageMagick security policy to allow processing all image formats
+RUN if [ -f /etc/ImageMagick-6/policy.xml ]; then \
+    sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml; \
+    fi
+
 COPY --from=build /app/publish .
 
 # Expose port 8080 (default for .NET 8+)
