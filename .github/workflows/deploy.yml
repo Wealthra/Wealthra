@@ -37,7 +37,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yaml"
+          source: "docker-compose.yaml,Caddyfile"
           target: "/root/wealthra-backend"
 
       - name: Deploy on Server
