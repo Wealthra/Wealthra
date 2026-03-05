@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Goals.Commands.CreateGoal;
 using Wealthra.Application.Features.Goals.Commands.DeleteGoal;
 using Wealthra.Application.Features.Goals.Commands.UpdateGoal;
 using Wealthra.Application.Features.Goals.Models;
 using Wealthra.Application.Features.Goals.Queries.GetGoalById;
+using Wealthra.Application.Features.Goals.Queries.GetGoalsTotal;
+using Wealthra.Application.Features.Goals.Queries.GetUserGoalHistory;
 using Wealthra.Application.Features.Goals.Queries.GetUserGoals;
 
 namespace Wealthra.Api.Controllers;
@@ -50,5 +53,20 @@ public class GoalsController : ApiControllerBase
     {
         await Mediator.Send(new DeleteGoalCommand(id));
         return NoContent();
+    }
+
+    [HttpGet("total")]
+    public async Task<ActionResult<GoalsTotalDto>> GetTotal()
+    {
+        var result = await Mediator.Send(new GetGoalsTotalQuery());
+        return Ok(result);
+    }
+
+    [HttpGet("user")]
+    public async Task<ActionResult<PaginatedList<GoalHistoryDto>>> GetUserGoalHistory(
+        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    {
+        var result = await Mediator.Send(new GetUserGoalHistoryQuery { PageNumber = pageNumber, PageSize = pageSize });
+        return Ok(result);
     }
 }
