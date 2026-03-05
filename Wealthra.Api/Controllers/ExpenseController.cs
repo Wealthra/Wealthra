@@ -8,6 +8,7 @@ using Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
 using Wealthra.Application.Features.Expenses.Models;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseById;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenses;
+using Wealthra.Application.Features.Expenses.Queries.GetUserExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
 
 namespace Wealthra.Api.Controllers
@@ -53,6 +54,13 @@ namespace Wealthra.Api.Controllers
         {
             await Mediator.Send(new DeleteExpenseCommand(id));
             return NoContent();
+        }
+
+        [HttpGet("user")]
+        public async Task<ActionResult<PaginatedList<ExpenseDto>>> GetUserExpenses([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var result = await Mediator.Send(new GetUserExpensesQuery { PageNumber = pageNumber, PageSize = pageSize });
+            return Ok(result);
         }
 
         [HttpGet("summary")]
