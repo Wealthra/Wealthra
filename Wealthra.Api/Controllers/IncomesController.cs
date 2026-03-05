@@ -8,6 +8,7 @@ using Wealthra.Application.Features.Incomes.Models;
 using Wealthra.Application.Features.Incomes.Queries.GetIncomeById;
 using Wealthra.Application.Features.Incomes.Queries.GetIncomes;
 using Wealthra.Application.Features.Incomes.Queries.GetIncomeSummary;
+using Wealthra.Application.Features.Incomes.Queries.GetIncomeGeneralInfo;
 
 namespace Wealthra.Api.Controllers;
 
@@ -59,5 +60,12 @@ public class IncomesController : ApiControllerBase
     {
         var summary = await Mediator.Send(new GetIncomeSummaryQuery { Period = period });
         return Ok(summary);
+    }
+
+    [HttpGet("generalinfo")]
+    public async Task<ActionResult<IncomeGeneralInfoDto>> GetGeneralInfo()
+    {
+        var result = await Mediator.Send(new GetIncomeGeneralInfoQuery());
+        return Ok(result);
     }
 }

@@ -10,6 +10,7 @@ using Wealthra.Application.Features.Expenses.Queries.GetExpenseById;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetUserExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
+using Wealthra.Application.Features.Expenses.Queries.GetExpenseGeneralInfo;
 
 namespace Wealthra.Api.Controllers
 {
@@ -68,6 +69,13 @@ namespace Wealthra.Api.Controllers
         {
             var summary = await Mediator.Send(new GetExpenseSummaryQuery { Period = period });
             return Ok(summary);
+        }
+
+        [HttpGet("generalinfo")]
+        public async Task<ActionResult<ExpenseGeneralInfoDto>> GetGeneralInfo()
+        {
+            var result = await Mediator.Send(new GetExpenseGeneralInfoQuery());
+            return Ok(result);
         }
     }
 }
