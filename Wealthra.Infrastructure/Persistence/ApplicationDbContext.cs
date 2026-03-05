@@ -52,6 +52,8 @@ namespace Wealthra.Infrastructure.Persistence
                 {
                     entry.Entity.CreatedOn = _dateTimeService.NowUtc;
                     entry.Entity.CreatedBy = _currentUserService.UserId ?? "System";
+                    entry.Entity.LastModifiedOn = _dateTimeService.NowUtc;
+                    entry.Entity.LastModifiedBy = _currentUserService.UserId ?? "System";
                 }
                 else if (entry.State == EntityState.Modified)
                 {

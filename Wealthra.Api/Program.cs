@@ -137,6 +137,9 @@ using (var scope = app.Services.CreateScope())
 
         // 2. Seed Identity Data
         await Wealthra.Infrastructure.Persistence.Seeding.IdentitySeeder.SeedDefaultUsersAndRolesAsync(services);
+
+        // 3. Seed Demo Data (categories, incomes, expenses, budgets, goals)
+        await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
     }
     catch (Exception ex)
     {
