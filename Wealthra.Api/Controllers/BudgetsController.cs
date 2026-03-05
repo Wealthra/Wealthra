@@ -6,6 +6,7 @@ using Wealthra.Application.Features.Budgets.Commands.UpdateBudget;
 using Wealthra.Application.Features.Budgets.Models;
 using Wealthra.Application.Features.Budgets.Queries.GetBudgetById;
 using Wealthra.Application.Features.Budgets.Queries.GetBudgetOverview;
+using Wealthra.Application.Features.Budgets.Queries.GetMonthlyBudget;
 using Wealthra.Application.Features.Budgets.Queries.GetUserBudgets;
 
 namespace Wealthra.Api.Controllers;
@@ -32,6 +33,13 @@ public class BudgetsController : ApiControllerBase
     {
         var overview = await Mediator.Send(new GetBudgetOverviewQuery());
         return Ok(overview);
+    }
+
+    [HttpGet("monthly")]
+    public async Task<ActionResult<MonthlyBudgetSummaryDto>> GetMonthly()
+    {
+        var result = await Mediator.Send(new GetMonthlyBudgetQuery());
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
