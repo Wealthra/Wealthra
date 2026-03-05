@@ -127,24 +127,40 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try
+    int maxRetries = 5;
+    int retryDelaySeconds = 3;
+    
+    for (int retry = 1; retry <= maxRetries; retry++)
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        if (context.Database.IsRelational())
+        try
         {
-            await context.Database.MigrateAsync();
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            if (context.Database.IsRelational())
+            {
+                await context.Database.MigrateAsync();
+            }
+
+            // 2. Seed Identity Data
+            await Wealthra.Infrastructure.Persistence.Seeding.IdentitySeeder.SeedDefaultUsersAndRolesAsync(services);
+
+            // 3. Seed Demo Data (categories, incomes, expenses, budgets, goals)
+            await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
+            
+            break; // Success! Exit the retry loop
         }
-
-        // 2. Seed Identity Data
-        await Wealthra.Infrastructure.Persistence.Seeding.IdentitySeeder.SeedDefaultUsersAndRolesAsync(services);
-
-        // 3. Seed Demo Data (categories, incomes, expenses, budgets, goals)
-        await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating or seeding the database.");
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            if (retry == maxRetries)
+            {
+                logger.LogCritical(ex, "Failed to migrate or seed database after {MaxRetries} attempts. Application will start but may be unstable.", maxRetries);
+            }
+            else
+            {
+                logger.LogWarning(ex, "Database connection failed on attempt {Retry}/{MaxRetries}. Retrying in {Delay} seconds...", retry, maxRetries, retryDelaySeconds);
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+        }
     }
 }
 
