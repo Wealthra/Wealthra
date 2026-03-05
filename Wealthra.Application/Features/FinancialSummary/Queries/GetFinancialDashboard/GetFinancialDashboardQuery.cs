@@ -80,18 +80,31 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             .ToList();
 
         // Get top spending categories (last 30 days)
+        // Note: EF Core cannot translate GroupBy+Join in a single pipeline,
+        // so we fetch the raw data first and group in memory.
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
-        var topCategories = await _context.Expenses
-            .Include(e => e.Category)
+
+        var rawExpenseData = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId && e.TransactionDate >= thirtyDaysAgo)
-            .GroupBy(e => new { e.CategoryId, e.Category.Name })
+            .Select(e => new { e.CategoryId, e.Amount })
+            .ToListAsync(cancellationToken);
+
+        var categoryIds = rawExpenseData.Select(e => e.CategoryId).Distinct().ToList();
+
+        var categoryNames = await _context.Categories
+            .Where(c => categoryIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
+
+        var topCategories = rawExpenseData
+            .GroupBy(e => e.CategoryId)
             .Select(g => new TopCategoryDto(
-                g.Key.Name,
+                categoryNames.GetValueOrDefault(g.Key, "Unknown"),
                 g.Sum(e => e.Amount),
                 g.Count()))
             .OrderByDescending(c => c.TotalAmount)
             .Take(5)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         // Get budget alerts (Warning or Exceeded)
         var budgetAlerts = await _context.Budgets
