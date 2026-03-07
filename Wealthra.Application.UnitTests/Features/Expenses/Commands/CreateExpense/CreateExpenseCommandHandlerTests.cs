@@ -6,6 +6,13 @@ using Moq;
 using FluentAssertions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
+using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
+using Wealthra.Domain.Entities;
+using Wealthra.Domain.Common;
+using MockQueryable.Moq;
+using MediatR;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Wealthra.Application.UnitTests.Features.Expenses.Commands.CreateExpense;
 
@@ -13,6 +20,7 @@ public class CreateExpenseCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ISender> _mockSender;
 
     private readonly CreateExpenseCommandHandler _handler;
 
@@ -20,28 +28,47 @@ public class CreateExpenseCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockSender = new Mock<ISender>();
 
-        _handler = new CreateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new CreateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object);
     }
 
     [Fact]
-    public async Task Handle_Should_NotThrowException()
+    public async Task Handle_ValidRequest_ShouldTriggerAnomalyAnalysis()
     {
         // Arrange
-        CreateExpenseCommand request = null!;
+        var userId = "test-user-id";
+        _mockICurrentUserService.Setup(x => x.UserId).Returns(userId);
         
+        var categoryId = 1;
+        var category = new Category("Food");
+        typeof(BaseEntity).GetProperty("Id")!.SetValue(category, categoryId);
+
+        _mockContext.Setup(x => x.Categories)
+            .Returns(new List<Category> { category }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Budgets)
+            .Returns(new List<Budget>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Expenses)
+            .Returns(new List<Expense>().BuildMockDbSet().Object);
+
+        var request = new CreateExpenseCommand
+        {
+            Description = "Test Expense",
+            Amount = 500,
+            CategoryId = categoryId,
+            TransactionDate = new DateTime(2026, 3, 7),
+            PaymentMethod = "Cash"
+        };
+
         // Act
-        // This is a minimal test to satisfy "don't skip anything"
-        try 
-        {
-            await _handler.Handle(request, CancellationToken.None);
-        }
-        catch 
-        {
-            // May throw null ref due to empty mock, that's fine for placeholder unit test
-        }
+        await _handler.Handle(request, CancellationToken.None);
 
         // Assert
-        _handler.Should().NotBeNull();
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        
+        _mockSender.Verify(x => x.Send(
+            It.Is<AnalyzeSpendingAnomaliesCommand>(c => c.Year == 2026 && c.Month == 3),
+            It.IsAny<CancellationToken>()), 
+            Times.Once);
     }
 }

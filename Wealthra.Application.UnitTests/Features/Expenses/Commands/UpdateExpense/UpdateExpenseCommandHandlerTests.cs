@@ -6,6 +6,7 @@ using Moq;
 using FluentAssertions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
+using MediatR;
 
 namespace Wealthra.Application.UnitTests.Features.Expenses.Commands.UpdateExpense;
 
@@ -13,6 +14,7 @@ public class UpdateExpenseCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ISender> _mockSender;
 
     private readonly UpdateExpenseCommandHandler _handler;
 
@@ -20,8 +22,9 @@ public class UpdateExpenseCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockSender = new Mock<ISender>();
 
-        _handler = new UpdateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new UpdateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object);
     }
 
     [Fact]

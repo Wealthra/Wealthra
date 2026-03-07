@@ -6,6 +6,7 @@ using Moq;
 using FluentAssertions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
+using MediatR;
 
 namespace Wealthra.Application.UnitTests.Features.Expenses.Commands.DeleteExpense;
 
@@ -13,6 +14,7 @@ public class DeleteExpenseCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ISender> _mockSender;
 
     private readonly DeleteExpenseCommandHandler _handler;
 
@@ -20,8 +22,9 @@ public class DeleteExpenseCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockSender = new Mock<ISender>();
 
-        _handler = new DeleteExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new DeleteExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object);
     }
 
     [Fact]

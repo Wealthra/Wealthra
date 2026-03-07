@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
 
 namespace Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
 
@@ -39,11 +40,13 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ISender _sender;
 
-    public UpdateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public UpdateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _sender = sender;
     }
 
     public async Task<Unit> Handle(UpdateExpenseCommand request, CancellationToken cancellationToken)
@@ -100,6 +103,13 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Trigger Anomaly Analysis for this month
+        await _sender.Send(new AnalyzeSpendingAnomaliesCommand 
+        { 
+            Year = request.TransactionDate.Year, 
+            Month = request.TransactionDate.Month 
+        }, cancellationToken);
 
         return Unit.Value;
     }

@@ -34,26 +34,39 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                 .Where(m => m.UserId == userId && m.Month == targetMonth)
                 .ToListAsync(cancellationToken);
 
+            // Fetch existing alerts for this month to prevent spamming
+            var existingAlerts = await _context.Notifications
+                .Where(n => n.UserId == userId && 
+                            n.Type == NotificationType.Alert && 
+                            n.CreatedOn.Year == targetMonth.Year && 
+                            n.CreatedOn.Month == targetMonth.Month)
+                .ToListAsync(cancellationToken);
+
             foreach (var metric in metrics)
             {
                 // Heuristic 1: High Percentage of Total Income
-                // Flag if any category (except perhaps known large ones like Housing, but keeping generic for now) takes > 30% of income.
+                // Flag if any category takes > 30% of income.
                 if (metric.SpendPercentageOfIncome > 30)
                 {
                     var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{Math.Round(metric.SpendPercentageOfIncome, 1)}'ini oluşturuyor.";
                     
-                    var notification = new Notification
+                    var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("toplam gelirinizin %"));
+                    if (!alreadySent)
                     {
-                        UserId = userId,
-                        Message = msg,
-                        Type = NotificationType.Alert,
-                        CreatedOn = DateTime.UtcNow,
-                        IsRead = false,
-                        RelatedEntityId = metric.CategoryId
-                    };
+                        var notification = new Notification
+                        {
+                            UserId = userId,
+                            Message = msg,
+                            Type = NotificationType.Alert,
+                            CreatedOn = DateTime.UtcNow,
+                            IsRead = false,
+                            RelatedEntityId = metric.CategoryId
+                        };
 
-                    _context.Notifications.Add(notification);
-                    generatedAlerts.Add(msg);
+                        _context.Notifications.Add(notification);
+                        existingAlerts.Add(notification); // Add to local list to prevent duplicates in same run
+                        generatedAlerts.Add(msg);
+                    }
                 }
 
                 // Heuristic 2: Month-over-Month Spike
@@ -66,18 +79,23 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                         var percentageIncrease = (increaseRatio - 1) * 100;
                         var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız geçen aya göre %{Math.Round(percentageIncrease, 1)} artış gösterdi.";
                         
-                        var notification = new Notification
+                        var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("geçen aya göre %"));
+                        if (!alreadySent)
                         {
-                            UserId = userId,
-                            Message = msg,
-                            Type = NotificationType.Alert,
-                            CreatedOn = DateTime.UtcNow,
-                            IsRead = false,
-                            RelatedEntityId = metric.CategoryId
-                        };
+                            var notification = new Notification
+                            {
+                                UserId = userId,
+                                Message = msg,
+                                Type = NotificationType.Alert,
+                                CreatedOn = DateTime.UtcNow,
+                                IsRead = false,
+                                RelatedEntityId = metric.CategoryId
+                            };
 
-                        _context.Notifications.Add(notification);
-                        generatedAlerts.Add(msg);
+                            _context.Notifications.Add(notification);
+                            existingAlerts.Add(notification);
+                            generatedAlerts.Add(msg);
+                        }
                     }
                 }
             }

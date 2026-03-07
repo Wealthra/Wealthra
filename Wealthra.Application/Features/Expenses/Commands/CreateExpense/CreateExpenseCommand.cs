@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Exceptions;
 
@@ -42,11 +44,13 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ISender _sender;
 
-        public CreateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+        public CreateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _sender = sender;
         }
 
         public async Task<int> Handle(CreateExpenseCommand request, CancellationToken cancellationToken)
@@ -88,6 +92,13 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
 
             // D. Save (Infrastructure dispatches Domain Events here)
             await _context.SaveChangesAsync(cancellationToken);
+
+            // E. Trigger Anomaly Analysis in the background for this month
+            await _sender.Send(new AnalyzeSpendingAnomaliesCommand 
+            { 
+                Year = request.TransactionDate.Year, 
+                Month = request.TransactionDate.Month 
+            }, cancellationToken);
 
             return entity.Id;
         }

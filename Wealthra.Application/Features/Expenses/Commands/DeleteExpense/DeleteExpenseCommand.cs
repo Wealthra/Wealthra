@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
 
 namespace Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
 
@@ -11,11 +12,13 @@ public class DeleteExpenseCommandHandler : IRequestHandler<DeleteExpenseCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ISender _sender;
 
-    public DeleteExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public DeleteExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _sender = sender;
     }
 
     public async Task<Unit> Handle(DeleteExpenseCommand request, CancellationToken cancellationToken)
@@ -39,6 +42,13 @@ public class DeleteExpenseCommandHandler : IRequestHandler<DeleteExpenseCommand,
 
         _context.Expenses.Remove(expense);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Trigger Anomaly Analysis for this month
+        await _sender.Send(new AnalyzeSpendingAnomaliesCommand 
+        { 
+            Year = expense.TransactionDate.Year, 
+            Month = expense.TransactionDate.Month 
+        }, cancellationToken);
 
         return Unit.Value;
     }

@@ -166,6 +166,55 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
 
             // Assert
             result.Should().BeEmpty();
+            _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Handle_AnomalousSpendButAlreadyNotified_ShouldNotCreateDuplicateNotification()
+        {
+            // Arrange
+            var userId = "test-user-id";
+            var targetYear = 2026;
+            var targetMonth = 3;
+            var targetDate = new DateTime(targetYear, targetMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+            
+            _currentUserServiceMock.Setup(x => x.UserId).Returns(userId);
+
+            var metric = new MonthlyCategoryMetric
+            {
+                UserId = userId,
+                Month = targetDate,
+                CategoryId = 1,
+                CategoryName = "Dining Out",
+                TotalSpend = 1500,
+                TotalIncome = 4000,
+                SpendPercentageOfIncome = 37.5m, // > 30%
+                PreviousMonthSpend = 1400
+            };
+
+            var metrics = new List<MonthlyCategoryMetric> { metric }.BuildMockDbSet();
+            _contextMock.Setup(x => x.MonthlyCategoryMetrics).Returns(metrics.Object);
+            
+            // Existing notification in DB for this month/category
+            var existingNotification = new Notification
+            {
+                UserId = userId,
+                RelatedEntityId = 1,
+                Message = "Warning: Dining Out takes up too much of your income (toplam gelirinizin %)",
+                Type = NotificationType.Alert,
+                CreatedOn = new DateTime(targetYear, targetMonth, 2)
+            };
+            
+            var notificationsDbSet = new List<Notification> { existingNotification }.BuildMockDbSet();
+            _contextMock.Setup(x => x.Notifications).Returns(notificationsDbSet.Object);
+
+            var command = new AnalyzeSpendingAnomaliesCommand { Year = targetYear, Month = targetMonth };
+
+            // Act
+            var result = await _handler.Handle(command, CancellationToken.None);
+
+            // Assert
+            result.Should().BeEmpty(); // No new alerts generated
             _contextMock.Verify(x => x.Notifications.Add(It.IsAny<Notification>()), Times.Never);
             _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
