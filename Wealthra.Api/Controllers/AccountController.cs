@@ -96,5 +96,13 @@ namespace Wealthra.Api.Controllers
             await Mediator.Send(command);
             return NoContent();
         }
+
+        [HttpDelete("me")]
+        public async Task<ActionResult> DeleteAccount()
+        {
+            await Mediator.Send(new Wealthra.Application.Features.Identity.Commands.DeleteAccount.DeleteAccountCommand());
+            Response.Cookies.Delete("refresh-token");
+            return NoContent();
+        }
     }
 }
