@@ -7,6 +7,7 @@ using Wealthra.Infrastructure;
 using Wealthra.Infrastructure.Persistence;
 using Microsoft.OpenApi; // Note the change to Models namespace
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Setup Serilog
