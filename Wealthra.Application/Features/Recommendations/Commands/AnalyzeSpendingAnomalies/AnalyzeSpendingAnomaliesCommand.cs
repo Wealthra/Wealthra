@@ -105,6 +105,12 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
+            // If no new alerts were generated this run, return existing alerts for this month so the client sees them
+            if (!generatedAlerts.Any() && existingAlerts.Any())
+            {
+                return existingAlerts.Select(n => n.Message).ToList();
+            }
+
             return generatedAlerts;
         }
     }
