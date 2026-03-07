@@ -146,7 +146,10 @@ using (var scope = app.Services.CreateScope())
 
             // 3. Seed Demo Data (categories, incomes, expenses, budgets, goals)
             await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
-            
+
+            // 4. Seed data for anomaly detection (anomalous.user + stable.user)
+            await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedAnomalyDetectionDataAsync(services);
+
             break; // Success! Exit the retry loop
         }
         catch (Exception ex)

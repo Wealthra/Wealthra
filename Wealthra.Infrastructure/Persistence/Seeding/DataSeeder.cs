@@ -201,6 +201,148 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
             await FixCreatedBy(db, "Goals", userId);
         }
 
+        /// <summary>
+        /// Seeds data for anomaly detection: anomalous.user (triggers alerts) and stable.user (no alerts).
+        /// Safe to call multiple times — skips if data already exists for each user.
+        /// </summary>
+        public static async Task SeedAnomalyDetectionDataAsync(IServiceProvider serviceProvider)
+        {
+            var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
+            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var now = DateTime.UtcNow;
+
+            // ─── Anomalous user: Shopping >30% of income, Entertainment >50% MoM spike ───
+            var anomalousUser = await userManager.FindByEmailAsync("anomalous.user@wealthra.local");
+            if (anomalousUser != null && !await db.Categories.AnyAsync(c => c.CreatedBy == anomalousUser.Id))
+            {
+                var catNames = new[] { "Food & Dining", "Transport", "Housing", "Health & Fitness", "Entertainment", "Shopping", "Utilities", "Education" };
+                var categories = catNames.Select(n => new Category(n)).ToArray();
+                await db.Categories.AddRangeAsync(categories);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Categories", anomalousUser.Id);
+
+                var food = categories[0];
+                var transport = categories[1];
+                var housing = categories[2];
+                var health = categories[3];
+                var entertain = categories[4];
+                var shopping = categories[5];
+                var utilities = categories[6];
+                var education = categories[7];
+
+                // Income: 5000 this month, 5000 last month, 5000 two months ago
+                var anomalousIncomes = new List<Income>
+                {
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, 0, 1)),
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, -1, 1)),
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, -2, 1)),
+                };
+                await db.Incomes.AddRangeAsync(anomalousIncomes);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Incomes", anomalousUser.Id);
+
+                // Expenses: Shopping = 2000 this month (40% of 5000 → triggers >30% rule); Entertainment 100 last month, 210 this month (>50% spike)
+                var anomalousExpenses = new List<Expense>
+                {
+                    // This month
+                    MakeExpense("Groceries", 300m, "Debit Card", food.Id, false, MonthDay(now, 0, 5)),
+                    MakeExpense("Transit", 95m, "Debit Card", transport.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Rent", 1200m, "Bank Transfer", housing.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Gym", 45m, "Debit Card", health.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Streaming + concert", 210m, "Credit Card", entertain.Id, false, MonthDay(now, 0, 10)), // 210 vs 100 last month = 110% spike
+                    MakeExpense("Electronics & clothes", 2000m, "Credit Card", shopping.Id, false, MonthDay(now, 0, 8)),   // 2000/5000 = 40% of income
+                    MakeExpense("Bills", 120m, "Bank Transfer", utilities.Id, true, MonthDay(now, 0, 3)),
+                    MakeExpense("Course", 50m, "Credit Card", education.Id, false, MonthDay(now, 0, 12)),
+                    // Last month
+                    MakeExpense("Groceries", 280m, "Debit Card", food.Id, false, MonthDay(now, -1, 5)),
+                    MakeExpense("Transit", 95m, "Debit Card", transport.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Rent", 1200m, "Bank Transfer", housing.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Gym", 45m, "Debit Card", health.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Streaming", 100m, "Credit Card", entertain.Id, false, MonthDay(now, -1, 10)),
+                    MakeExpense("Clothes", 150m, "Credit Card", shopping.Id, false, MonthDay(now, -1, 8)),
+                    MakeExpense("Bills", 115m, "Bank Transfer", utilities.Id, true, MonthDay(now, -1, 3)),
+                    MakeExpense("Book", 30m, "Credit Card", education.Id, false, MonthDay(now, -1, 12)),
+                    // Two months ago
+                    MakeExpense("Groceries", 270m, "Debit Card", food.Id, false, MonthDay(now, -2, 5)),
+                    MakeExpense("Transit", 95m, "Debit Card", transport.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Rent", 1200m, "Bank Transfer", housing.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Gym", 45m, "Debit Card", health.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Streaming", 95m, "Credit Card", entertain.Id, false, MonthDay(now, -2, 10)),
+                    MakeExpense("Shopping", 140m, "Credit Card", shopping.Id, false, MonthDay(now, -2, 8)),
+                    MakeExpense("Bills", 110m, "Bank Transfer", utilities.Id, true, MonthDay(now, -2, 3)),
+                    MakeExpense("Course", 40m, "Credit Card", education.Id, false, MonthDay(now, -2, 12)),
+                };
+                await db.Expenses.AddRangeAsync(anomalousExpenses);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Expenses", anomalousUser.Id);
+            }
+
+            // ─── Stable user: all categories <30% of income, no >50% MoM spike ───
+            var stableUser = await userManager.FindByEmailAsync("stable.user@wealthra.local");
+            if (stableUser != null && !await db.Categories.AnyAsync(c => c.CreatedBy == stableUser.Id))
+            {
+                var catNames = new[] { "Food & Dining", "Transport", "Housing", "Health & Fitness", "Entertainment", "Shopping", "Utilities", "Education" };
+                var categories = catNames.Select(n => new Category(n)).ToArray();
+                await db.Categories.AddRangeAsync(categories);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Categories", stableUser.Id);
+
+                var food = categories[0];
+                var transport = categories[1];
+                var housing = categories[2];
+                var health = categories[3];
+                var entertain = categories[4];
+                var shopping = categories[5];
+                var utilities = categories[6];
+                var education = categories[7];
+
+                var stableIncomes = new List<Income>
+                {
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, 0, 1)),
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, -1, 1)),
+                    MakeIncome("Salary", 5000m, "Bank Transfer", true, MonthDay(now, -2, 1)),
+                };
+                await db.Incomes.AddRangeAsync(stableIncomes);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Incomes", stableUser.Id);
+
+                // Balanced: no category >30%, similar MoM (no spike)
+                var stableExpenses = new List<Expense>
+                {
+                    // This month (~2500 total, each category &lt; 30% of 5000)
+                    MakeExpense("Groceries", 400m, "Debit Card", food.Id, false, MonthDay(now, 0, 5)),
+                    MakeExpense("Transit", 90m, "Debit Card", transport.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Rent", 1100m, "Bank Transfer", housing.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Gym", 40m, "Debit Card", health.Id, true, MonthDay(now, 0, 1)),
+                    MakeExpense("Streaming", 25m, "Credit Card", entertain.Id, false, MonthDay(now, 0, 1)),
+                    MakeExpense("Shopping", 120m, "Credit Card", shopping.Id, false, MonthDay(now, 0, 10)),
+                    MakeExpense("Bills", 110m, "Bank Transfer", utilities.Id, true, MonthDay(now, 0, 3)),
+                    MakeExpense("Course", 45m, "Credit Card", education.Id, false, MonthDay(now, 0, 12)),
+                    // Last month (similar totals)
+                    MakeExpense("Groceries", 380m, "Debit Card", food.Id, false, MonthDay(now, -1, 5)),
+                    MakeExpense("Transit", 90m, "Debit Card", transport.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Rent", 1100m, "Bank Transfer", housing.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Gym", 40m, "Debit Card", health.Id, true, MonthDay(now, -1, 1)),
+                    MakeExpense("Streaming", 22m, "Credit Card", entertain.Id, false, MonthDay(now, -1, 1)),
+                    MakeExpense("Shopping", 115m, "Credit Card", shopping.Id, false, MonthDay(now, -1, 10)),
+                    MakeExpense("Bills", 108m, "Bank Transfer", utilities.Id, true, MonthDay(now, -1, 3)),
+                    MakeExpense("Book", 42m, "Credit Card", education.Id, false, MonthDay(now, -1, 12)),
+                    // Two months ago
+                    MakeExpense("Groceries", 390m, "Debit Card", food.Id, false, MonthDay(now, -2, 5)),
+                    MakeExpense("Transit", 90m, "Debit Card", transport.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Rent", 1100m, "Bank Transfer", housing.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Gym", 40m, "Debit Card", health.Id, true, MonthDay(now, -2, 1)),
+                    MakeExpense("Streaming", 24m, "Credit Card", entertain.Id, false, MonthDay(now, -2, 1)),
+                    MakeExpense("Shopping", 118m, "Credit Card", shopping.Id, false, MonthDay(now, -2, 10)),
+                    MakeExpense("Bills", 105m, "Bank Transfer", utilities.Id, true, MonthDay(now, -2, 3)),
+                    MakeExpense("Course", 38m, "Credit Card", education.Id, false, MonthDay(now, -2, 12)),
+                };
+                await db.Expenses.AddRangeAsync(stableExpenses);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Expenses", stableUser.Id);
+            }
+        }
+
         // ─── Helpers ──────────────────────────────────────────────────────
 
         /// <summary>Corrects CreatedBy/LastModifiedBy that were overwritten with 'System' by the SaveChanges auditing interceptor.</summary>

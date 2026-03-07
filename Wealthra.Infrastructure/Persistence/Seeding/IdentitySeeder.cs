@@ -46,23 +46,33 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
             }
 
             // 3. Seed Normal User
-            var normalEmail = "user@wealthra.local";
-            if (await userManager.FindByEmailAsync(normalEmail) == null)
+            await CreateUserIfNotExists(userManager, "user@wealthra.local", "Standard", "User", "UserPassword123!");
+
+            // 4. Seed Anomalous User (for testing alerts/spikes)
+            await CreateUserIfNotExists(userManager, "anomalous.user@wealthra.local", "Anomalous", "Tester", "UserPassword123!");
+
+            // 5. Seed Stable User (for testing healthy balance/no alerts)
+            await CreateUserIfNotExists(userManager, "stable.user@wealthra.local", "Stable", "Saver", "UserPassword123!");
+        }
+
+        private static async Task CreateUserIfNotExists(UserManager<ApplicationUser> userManager, string email, string firstName, string lastName, string password)
+        {
+            if (await userManager.FindByEmailAsync(email) == null)
             {
-                var normalUser = new ApplicationUser
+                var user = new ApplicationUser
                 {
-                    UserName = normalEmail,
-                    Email = normalEmail,
-                    FirstName = "Standard",
-                    LastName = "User",
+                    UserName = email,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
                     EmailConfirmed = true,
                     CreatedAt = DateTime.UtcNow
                 };
 
-                var result = await userManager.CreateAsync(normalUser, "UserPassword123!");
+                var result = await userManager.CreateAsync(user, password);
                 if (result.Succeeded)
                 {
-                    await userManager.AddToRoleAsync(normalUser, Roles.Basic.ToString());
+                    await userManager.AddToRoleAsync(user, Roles.Basic.ToString());
                 }
             }
         }
