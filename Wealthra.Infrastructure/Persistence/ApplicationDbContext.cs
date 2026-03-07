@@ -36,11 +36,16 @@ namespace Wealthra.Infrastructure.Persistence
         public DbSet<Income> Incomes { get; set; }
         public DbSet<Goal> Goals { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
             builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+            builder.Entity<MonthlyCategoryMetric>()
+                .HasNoKey()
+                .ToView("vw_MonthlyCategoryMetrics");
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = new CancellationToken())
