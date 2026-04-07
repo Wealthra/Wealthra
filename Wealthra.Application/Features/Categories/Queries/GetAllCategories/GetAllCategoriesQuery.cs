@@ -21,19 +21,17 @@ public class GetAllCategoriesQueryHandler : IRequestHandler<GetAllCategoriesQuer
 
     public async Task<List<CategoryDto>> Handle(GetAllCategoriesQuery request, CancellationToken cancellationToken)
     {
-        // Try to get from cache
         var cachedCategories = await _cacheService.GetAsync<List<CategoryDto>>(CacheKey, cancellationToken);
         if (cachedCategories != null)
         {
             return cachedCategories;
         }
 
-        // If not in cache, get from database
         var categories = await _context.Categories
-            .Select(c => new CategoryDto(c.Id, c.Name))
+            .OrderBy(c => c.NameEn)
+            .Select(c => new CategoryDto(c.Id, c.NameEn, c.NameTr))
             .ToListAsync(cancellationToken);
 
-        // Cache indefinitely (no expiration)
         await _cacheService.SetAsync(CacheKey, categories, null, cancellationToken);
 
         return categories;

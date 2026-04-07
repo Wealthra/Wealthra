@@ -15,16 +15,19 @@ public record RecentTransactionDto(
     string Description,
     decimal Amount,
     DateTime TransactionDate,
-    string? CategoryName);
+    string? CategoryNameEn,
+    string? CategoryNameTr);
 
 public record TopCategoryDto(
-    string CategoryName,
+    string CategoryNameEn,
+    string CategoryNameTr,
     decimal TotalAmount,
     int TransactionCount);
 
 public record BudgetAlertDto(
     int BudgetId,
-    string CategoryName,
+    string CategoryNameEn,
+    string CategoryNameTr,
     decimal LimitAmount,
     decimal CurrentAmount,
     decimal PercentageUsed,

@@ -8,6 +8,7 @@ namespace Wealthra.Domain.Entities
         public DateTime Month { get; set; }
         public int CategoryId { get; set; }
         public string CategoryName { get; set; }
+        public string CategoryNameTr { get; set; }
         public decimal TotalSpend { get; set; }
         public decimal TotalIncome { get; set; }
         public decimal SpendPercentageOfIncome { get; set; }

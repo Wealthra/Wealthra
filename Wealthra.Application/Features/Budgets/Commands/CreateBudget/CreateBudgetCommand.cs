@@ -54,7 +54,7 @@ public class CreateBudgetCommandHandler : IRequestHandler<CreateBudgetCommand, i
 
         if (existingBudget != null)
         {
-            throw new Exception($"Budget for category '{category.Name}' already exists.");
+            throw new Exception($"Budget for category '{category.NameEn}' already exists.");
         }
 
         // Create new budget

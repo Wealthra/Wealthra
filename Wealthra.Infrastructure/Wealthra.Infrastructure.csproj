@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wealthra.Application\Wealthra.Application.csproj" />
+    <ProjectReference Include="..\Wealthra.Domain\Wealthra.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

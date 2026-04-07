@@ -46,9 +46,6 @@ public class DeleteAccountCommandHandler : IRequestHandler<DeleteAccountCommand,
         var incomes = await _context.Incomes.Where(x => x.CreatedBy == userId).ToListAsync(cancellationToken);
         _context.Incomes.RemoveRange(incomes);
 
-        var categories = await _context.Categories.Where(x => x.CreatedBy == userId).ToListAsync(cancellationToken);
-        _context.Categories.RemoveRange(categories);
-
         var goals = await _context.Goals.Where(x => x.CreatedBy == userId).ToListAsync(cancellationToken);
         _context.Goals.RemoveRange(goals);
 

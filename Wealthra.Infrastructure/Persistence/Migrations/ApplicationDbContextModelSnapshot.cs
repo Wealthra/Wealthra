@@ -214,14 +214,19 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LastModifiedOn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameTr")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name", "CreatedBy")
+                    b.HasIndex("NameEn")
                         .IsUnique();
 
                     b.ToTable("Categories", (string)null);
@@ -380,6 +385,10 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryNameTr")
                         .IsRequired()
                         .HasColumnType("text");
 

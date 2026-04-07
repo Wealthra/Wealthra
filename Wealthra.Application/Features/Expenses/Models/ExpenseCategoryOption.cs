@@ -1,3 +1,3 @@
 namespace Wealthra.Application.Features.Expenses.Models;
 
-public record ExpenseCategoryOption(int Id, string Name);
+public record ExpenseCategoryOption(int Id, string NameEn, string NameTr);

@@ -57,7 +57,8 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 e.Description,
                 e.Amount,
                 e.TransactionDate,
-                e.Category.Name))
+                e.Category.NameEn,
+                e.Category.NameTr))
             .ToListAsync(cancellationToken);
 
         var recentIncomes = await _context.Incomes
@@ -70,6 +71,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 i.Name,
                 i.Amount,
                 i.TransactionDate,
+                null,
                 null))
             .ToListAsync(cancellationToken);
 
@@ -93,15 +95,19 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
 
         var categoryNames = await _context.Categories
             .Where(c => categoryIds.Contains(c.Id))
-            .Select(c => new { c.Id, c.Name })
-            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
+            .ToDictionaryAsync(c => c.Id, c => (c.NameEn, c.NameTr), cancellationToken);
 
         var topCategories = rawExpenseData
             .GroupBy(e => e.CategoryId)
-            .Select(g => new TopCategoryDto(
-                categoryNames.GetValueOrDefault(g.Key, "Unknown"),
-                g.Sum(e => e.Amount),
-                g.Count()))
+            .Select(g =>
+            {
+                if (!categoryNames.TryGetValue(g.Key, out var nm))
+                {
+                    return new TopCategoryDto("Unknown", string.Empty, g.Sum(e => e.Amount), g.Count());
+                }
+
+                return new TopCategoryDto(nm.NameEn, nm.NameTr, g.Sum(e => e.Amount), g.Count());
+            })
             .OrderByDescending(c => c.TotalAmount)
             .Take(5)
             .ToList();
@@ -119,7 +125,8 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 var percentage = (b.CurrentAmount / b.LimitAmount) * 100;
                 return new BudgetAlertDto(
                     b.Id,
-                    b.Category.Name,
+                    b.Category.NameEn,
+                    b.Category.NameTr,
                     b.LimitAmount,
                     b.CurrentAmount,
                     percentage,

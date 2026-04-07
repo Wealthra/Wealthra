@@ -7,7 +7,7 @@ using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.UpdateCategory;
 
-public record UpdateCategoryCommand(int Id, string Name) : IRequest;
+public record UpdateCategoryCommand(int Id, string NameEn, string NameTr) : IRequest;
 
 public class UpdateCategoryCommandValidator : AbstractValidator<UpdateCategoryCommand>
 {
@@ -16,9 +16,13 @@ public class UpdateCategoryCommandValidator : AbstractValidator<UpdateCategoryCo
         RuleFor(v => v.Id)
             .GreaterThan(0).WithMessage("Category ID must be greater than 0.");
 
-        RuleFor(v => v.Name)
-            .NotEmpty().WithMessage("Category name is required.")
-            .MaximumLength(100).WithMessage("Category name must not exceed 100 characters.");
+        RuleFor(v => v.NameEn)
+            .NotEmpty().WithMessage("English category name is required.")
+            .MaximumLength(100).WithMessage("English category name must not exceed 100 characters.");
+
+        RuleFor(v => v.NameTr)
+            .NotEmpty().WithMessage("Turkish category name is required.")
+            .MaximumLength(100).WithMessage("Turkish category name must not exceed 100 characters.");
     }
 }
 
@@ -44,11 +48,10 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
             throw new NotFoundException(nameof(Category), request.Id);
         }
 
-        category.UpdateName(request.Name);
+        category.UpdateNames(request.NameEn, request.NameTr);
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Invalidate cache since category name changed
         await _cacheService.RemoveAsync(CacheKey, cancellationToken);
     }
 }

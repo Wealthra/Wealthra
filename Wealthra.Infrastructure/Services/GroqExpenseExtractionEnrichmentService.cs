@@ -54,7 +54,7 @@ namespace Wealthra.Infrastructure.Services
             try
             {
                 var categoriesJson = JsonSerializer.Serialize(
-                    applicationCategories.Select(c => new { id = c.Id, name = c.Name }),
+                    applicationCategories.Select(c => new { id = c.Id, nameEn = c.NameEn, nameTr = c.NameTr }),
                     SerializerOptions);
 
                 var inputJson = JsonSerializer.Serialize(
@@ -70,7 +70,7 @@ namespace Wealthra.Infrastructure.Services
 
                 var prompt =
                     "You normalize receipt line items extracted by OCR. Input is a JSON array of objects.\n" +
-                    "ALLOWED_CATEGORIES (JSON array — you MUST ONLY pick categoryId from these id values, or null if none fit):\n" +
+                    "ALLOWED_CATEGORIES (JSON: id, nameEn, nameTr — pick categoryId only from id values; use names to infer the best fit in any language):\n" +
                     categoriesJson +
                     "\n\nRules:\n" +
                     "- Merge only true duplicates (same product and same amount).\n" +
@@ -123,7 +123,7 @@ namespace Wealthra.Infrastructure.Services
                 }
 
                 var allowedIds = new HashSet<int>(applicationCategories.Select(c => c.Id));
-                var idToName = applicationCategories.ToDictionary(c => c.Id, c => c.Name);
+                var idToName = applicationCategories.ToDictionary(c => c.Id, c => $"{c.NameEn} ({c.NameTr})");
 
                 static string NormalizeDescription(string? d) =>
                     (d ?? string.Empty).Trim().ToUpperInvariant();

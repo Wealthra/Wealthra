@@ -7,4 +7,5 @@ public record BudgetDto(
     decimal PercentageUsed,
     string Status,
     int CategoryId,
-    string CategoryName);
+    string CategoryNameEn,
+    string CategoryNameTr);

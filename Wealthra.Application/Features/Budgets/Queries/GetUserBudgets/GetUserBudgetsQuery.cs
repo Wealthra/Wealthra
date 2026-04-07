@@ -30,7 +30,8 @@ public class GetUserBudgetsQueryHandler : IRequestHandler<GetUserBudgetsQuery, L
                 b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
                 GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
                 b.CategoryId,
-                b.Category.Name))
+                b.Category.NameEn,
+                b.Category.NameTr))
             .ToListAsync(cancellationToken);
 
         return budgets;

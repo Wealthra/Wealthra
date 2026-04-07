@@ -45,14 +45,12 @@ namespace Wealthra.Application.UnitTests.Features.Identity.Commands.DeleteAccoun
             var budgets = new List<Budget> { new Budget(1, 100) { CreatedBy = userId } }.BuildMockDbSet();
             var expenses = new List<Expense> { new Expense { CreatedBy = userId } }.BuildMockDbSet();
             var incomes = new List<Income> { new Income { CreatedBy = userId } }.BuildMockDbSet();
-            var categories = new List<Category> { new Category("Cat") { CreatedBy = userId } }.BuildMockDbSet();
             var goals = new List<Goal> { new Goal { CreatedBy = userId } }.BuildMockDbSet();
             var notifications = new List<Notification> { new Notification { UserId = userId } }.BuildMockDbSet();
             
             _contextMock.Setup(x => x.Budgets).Returns(budgets.Object);
             _contextMock.Setup(x => x.Expenses).Returns(expenses.Object);
             _contextMock.Setup(x => x.Incomes).Returns(incomes.Object);
-            _contextMock.Setup(x => x.Categories).Returns(categories.Object);
             _contextMock.Setup(x => x.Goals).Returns(goals.Object);
             _contextMock.Setup(x => x.Notifications).Returns(notifications.Object);
 
@@ -66,7 +64,6 @@ namespace Wealthra.Application.UnitTests.Features.Identity.Commands.DeleteAccoun
             _contextMock.Verify(x => x.Budgets.RemoveRange(It.IsAny<IEnumerable<Budget>>()), Times.Once);
             _contextMock.Verify(x => x.Expenses.RemoveRange(It.IsAny<IEnumerable<Expense>>()), Times.Once);
             _contextMock.Verify(x => x.Incomes.RemoveRange(It.IsAny<IEnumerable<Income>>()), Times.Once);
-            _contextMock.Verify(x => x.Categories.RemoveRange(It.IsAny<IEnumerable<Category>>()), Times.Once);
             _contextMock.Verify(x => x.Goals.RemoveRange(It.IsAny<IEnumerable<Goal>>()), Times.Once);
             _contextMock.Verify(x => x.Notifications.RemoveRange(It.IsAny<IEnumerable<Notification>>()), Times.Once);
             
@@ -99,7 +96,6 @@ namespace Wealthra.Application.UnitTests.Features.Identity.Commands.DeleteAccoun
             _contextMock.Setup(x => x.Budgets).Returns(new List<Budget>().BuildMockDbSet().Object);
             _contextMock.Setup(x => x.Expenses).Returns(new List<Expense>().BuildMockDbSet().Object);
             _contextMock.Setup(x => x.Incomes).Returns(new List<Income>().BuildMockDbSet().Object);
-            _contextMock.Setup(x => x.Categories).Returns(new List<Category>().BuildMockDbSet().Object);
             _contextMock.Setup(x => x.Goals).Returns(new List<Goal>().BuildMockDbSet().Object);
             _contextMock.Setup(x => x.Notifications).Returns(new List<Notification>().BuildMockDbSet().Object);
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Wealthra.Domain.Constants;
 using Wealthra.Domain.Entities;
 using Wealthra.Infrastructure.Identity.Models;
 using Wealthra.Infrastructure.Persistence;
@@ -8,56 +9,55 @@ using Wealthra.Infrastructure.Persistence;
 namespace Wealthra.Infrastructure.Persistence.Seeding
 {
     /// <summary>
-    /// Seeds rich demo data: categories, incomes, expenses, budgets, and goals.
-    /// Safe to call multiple times — skips seeding if data already exists for the user.
-    /// 
+    /// Seeds global categories once, then per-user demo data (incomes, expenses, budgets, goals).
+    /// Safe to call multiple times — skips demo seeding if the user already has expenses.
+    ///
     /// NOTE: ApplicationDbContext.SaveChangesAsync overrides CreatedBy with 'System' when
     /// there is no HTTP context. We correct this immediately after each save with a raw SQL UPDATE.
     /// </summary>
     public static class DataSeeder
     {
+        /// <summary>Inserts the standard bilingual category set when the table is empty.</summary>
+        public static async Task EnsureGlobalCategoriesAsync(ApplicationDbContext db)
+        {
+            if (await db.Categories.AnyAsync()) return;
+
+            var categories = StandardGlobalCategoryPairs.Pairs
+                .Select(p => new Category(p.NameEn, p.NameTr))
+                .ToArray();
+
+            await db.Categories.AddRangeAsync(categories);
+            await db.SaveChangesAsync();
+        }
+
+        private static async Task<IReadOnlyDictionary<string, Category>> GetCategoryMapAsync(ApplicationDbContext db) =>
+            await db.Categories.ToDictionaryAsync(c => c.NameEn);
+
         public static async Task SeedDemoDataAsync(IServiceProvider serviceProvider)
         {
             var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            await EnsureGlobalCategoriesAsync(db);
 
             var user = await userManager.FindByEmailAsync("user@wealthra.local");
             if (user == null) return;
 
             var userId = user.Id;
 
-            // Guard: skip if already seeded for this user
-            if (await db.Categories.AnyAsync(c => c.CreatedBy == userId)) return;
+            if (await db.Expenses.AnyAsync(e => e.CreatedBy == userId)) return;
 
             var now = DateTime.UtcNow;
 
-            // ─────────────────────────────────────────────────────────────
-            // 1. CATEGORIES
-            // ─────────────────────────────────────────────────────────────
-            var categories = new[]
-            {
-                new Category("Food & Dining"),
-                new Category("Transport"),
-                new Category("Housing"),
-                new Category("Health & Fitness"),
-                new Category("Entertainment"),
-                new Category("Shopping"),
-                new Category("Utilities"),
-                new Category("Education"),
-            };
-
-            await db.Categories.AddRangeAsync(categories);
-            await db.SaveChangesAsync();
-            await FixCreatedBy(db, "Categories", userId);
-
-            var food      = categories[0];
-            var transport = categories[1];
-            var housing   = categories[2];
-            var health    = categories[3];
-            var entertain = categories[4];
-            var shopping  = categories[5];
-            var utilities = categories[6];
-            var education = categories[7];
+            var cat = await GetCategoryMapAsync(db);
+            var food = cat["Food & Dining"];
+            var transport = cat["Transport"];
+            var housing = cat["Housing"];
+            var health = cat["Health & Fitness"];
+            var entertain = cat["Entertainment"];
+            var shopping = cat["Shopping"];
+            var utilities = cat["Utilities"];
+            var education = cat["Education"];
 
             // ─────────────────────────────────────────────────────────────
             // 2. BUDGETS (monthly limits per category)
@@ -212,23 +212,20 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
             var now = DateTime.UtcNow;
 
             // ─── Anomalous user: Shopping >30% of income, Entertainment >50% MoM spike ───
-            var anomalousUser = await userManager.FindByEmailAsync("anomalous.user@wealthra.local");
-            if (anomalousUser != null && !await db.Categories.AnyAsync(c => c.CreatedBy == anomalousUser.Id))
-            {
-                var catNames = new[] { "Food & Dining", "Transport", "Housing", "Health & Fitness", "Entertainment", "Shopping", "Utilities", "Education" };
-                var categories = catNames.Select(n => new Category(n)).ToArray();
-                await db.Categories.AddRangeAsync(categories);
-                await db.SaveChangesAsync();
-                await FixCreatedBy(db, "Categories", anomalousUser.Id);
+            await EnsureGlobalCategoriesAsync(db);
+            var cat = await GetCategoryMapAsync(db);
 
-                var food = categories[0];
-                var transport = categories[1];
-                var housing = categories[2];
-                var health = categories[3];
-                var entertain = categories[4];
-                var shopping = categories[5];
-                var utilities = categories[6];
-                var education = categories[7];
+            var anomalousUser = await userManager.FindByEmailAsync("anomalous.user@wealthra.local");
+            if (anomalousUser != null && !await db.Expenses.AnyAsync(e => e.CreatedBy == anomalousUser.Id))
+            {
+                var food = cat["Food & Dining"];
+                var transport = cat["Transport"];
+                var housing = cat["Housing"];
+                var health = cat["Health & Fitness"];
+                var entertain = cat["Entertainment"];
+                var shopping = cat["Shopping"];
+                var utilities = cat["Utilities"];
+                var education = cat["Education"];
 
                 // Income: 5000 this month, 5000 last month, 5000 two months ago
                 var anomalousIncomes = new List<Income>
@@ -279,22 +276,16 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
 
             // ─── Stable user: all categories <30% of income, no >50% MoM spike ───
             var stableUser = await userManager.FindByEmailAsync("stable.user@wealthra.local");
-            if (stableUser != null && !await db.Categories.AnyAsync(c => c.CreatedBy == stableUser.Id))
+            if (stableUser != null && !await db.Expenses.AnyAsync(e => e.CreatedBy == stableUser.Id))
             {
-                var catNames = new[] { "Food & Dining", "Transport", "Housing", "Health & Fitness", "Entertainment", "Shopping", "Utilities", "Education" };
-                var categories = catNames.Select(n => new Category(n)).ToArray();
-                await db.Categories.AddRangeAsync(categories);
-                await db.SaveChangesAsync();
-                await FixCreatedBy(db, "Categories", stableUser.Id);
-
-                var food = categories[0];
-                var transport = categories[1];
-                var housing = categories[2];
-                var health = categories[3];
-                var entertain = categories[4];
-                var shopping = categories[5];
-                var utilities = categories[6];
-                var education = categories[7];
+                var food = cat["Food & Dining"];
+                var transport = cat["Transport"];
+                var housing = cat["Housing"];
+                var health = cat["Health & Fitness"];
+                var entertain = cat["Entertainment"];
+                var shopping = cat["Shopping"];
+                var utilities = cat["Utilities"];
+                var education = cat["Education"];
 
                 var stableIncomes = new List<Income>
                 {

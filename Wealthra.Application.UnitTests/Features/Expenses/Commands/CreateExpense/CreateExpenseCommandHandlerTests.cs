@@ -41,7 +41,7 @@ public class CreateExpenseCommandHandlerTests
         _mockICurrentUserService.Setup(x => x.UserId).Returns(userId);
         
         var categoryId = 1;
-        var category = new Category("Food");
+        var category = new Category("Food", "Gıda");
         typeof(BaseEntity).GetProperty("Id")!.SetValue(category, categoryId);
 
         _mockContext.Setup(x => x.Categories)

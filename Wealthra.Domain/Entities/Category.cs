@@ -6,24 +6,32 @@ namespace Wealthra.Domain.Entities
 {
     public class Category : AuditableEntity
     {
-        public string Name { get; private set; }
+        public string NameEn { get; private set; }
+        public string NameTr { get; private set; }
 
-        // Navigation Property (One-to-Many)
         public virtual ICollection<Budget> Budgets { get; private set; } = new List<Budget>();
         public virtual ICollection<Expense> Expenses { get; private set; } = new List<Expense>();
 
-        // Constructor enforces required data
-        public Category(string name)
+        public Category(string nameEn, string nameTr)
         {
-            Name = name;
+            if (string.IsNullOrWhiteSpace(nameEn))
+                throw new ArgumentException("English category name cannot be empty.");
+            if (string.IsNullOrWhiteSpace(nameTr))
+                throw new ArgumentException("Turkish category name cannot be empty.");
+
+            NameEn = nameEn;
+            NameTr = nameTr;
         }
 
-        public void UpdateName(string newName)
+        public void UpdateNames(string nameEn, string nameTr)
         {
-            if (string.IsNullOrWhiteSpace(newName))
-                throw new ArgumentException("Category name cannot be empty.");
+            if (string.IsNullOrWhiteSpace(nameEn))
+                throw new ArgumentException("English category name cannot be empty.");
+            if (string.IsNullOrWhiteSpace(nameTr))
+                throw new ArgumentException("Turkish category name cannot be empty.");
 
-            Name = newName;
+            NameEn = nameEn;
+            NameTr = nameTr;
         }
     }
 }

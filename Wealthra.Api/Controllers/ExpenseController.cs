@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
 using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
@@ -13,6 +15,7 @@ using Wealthra.Application.Features.Expenses.Queries.GetExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetUserExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseGeneralInfo;
+using Wealthra.Domain.Entities;
 
 namespace Wealthra.Api.Controllers
 {
@@ -41,7 +44,7 @@ namespace Wealthra.Api.Controllers
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
-        public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<IReadOnlyList<Expense>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
         {
             if (file.Length == 0)
             {
@@ -53,9 +56,14 @@ namespace Wealthra.Api.Controllers
                 await using var stream = file.OpenReadStream();
                 var extracted = await _expenseExtractionService.ExtractFromImageAsync(stream, file.FileName, cancellationToken);
                 var categories = await Mediator.Send(new GetAllCategoriesQuery(), cancellationToken);
-                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.Name));
+                if (categories.Count == 0)
+                {
+                    return BadRequest("No categories configured for the current user.");
+                }
+
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.NameEn, c.NameTr));
                 var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
-                return Ok(enriched);
+                return Ok(MapExtractedToExpenseEntities(enriched, categories));
             }
             catch (Exception ex)
             {
@@ -67,7 +75,7 @@ namespace Wealthra.Api.Controllers
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 25 * 1024 * 1024)]
-        public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<IReadOnlyList<Expense>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
         {
             if (file.Length == 0)
             {
@@ -79,14 +87,64 @@ namespace Wealthra.Api.Controllers
                 await using var stream = file.OpenReadStream();
                 var extracted = await _expenseExtractionService.ExtractFromAudioAsync(stream, file.FileName, cancellationToken);
                 var categories = await Mediator.Send(new GetAllCategoriesQuery(), cancellationToken);
-                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.Name));
+                if (categories.Count == 0)
+                {
+                    return BadRequest("No categories configured for the current user.");
+                }
+
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.NameEn, c.NameTr));
                 var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
-                return Ok(enriched);
+                return Ok(MapExtractedToExpenseEntities(enriched, categories));
             }
             catch (Exception ex)
             {
                 return StatusCode(StatusCodes.Status502BadGateway, $"STT extraction service unavailable: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Maps enriched extraction rows to <see cref="Expense"/> instances (not persisted). CategoryId is taken from
+        /// <see cref="ExtractedExpenseDto.SuggestedCategoryId"/> when it matches an application category; otherwise the
+        /// lowest category id for the user is used.
+        /// </summary>
+        private static IReadOnlyList<Expense> MapExtractedToExpenseEntities(
+            IReadOnlyList<ExtractedExpenseDto> enriched,
+            List<CategoryDto> categories)
+        {
+            var defaultCategoryId = categories.Min(c => c.Id);
+            var allowed = categories.Select(c => c.Id).ToHashSet();
+            var list = new List<Expense>(enriched.Count);
+
+            foreach (var e in enriched)
+            {
+                var categoryId = e.SuggestedCategoryId;
+                if (categoryId is null || !allowed.Contains(categoryId.Value))
+                {
+                    categoryId = defaultCategoryId;
+                }
+
+                var when = e.Date ?? DateTime.UtcNow;
+                if (when.Kind == DateTimeKind.Unspecified)
+                {
+                    when = DateTime.SpecifyKind(when, DateTimeKind.Utc);
+                }
+                else if (when.Kind == DateTimeKind.Local)
+                {
+                    when = when.ToUniversalTime();
+                }
+
+                list.Add(new Expense
+                {
+                    Description = e.Description,
+                    Amount = e.Amount,
+                    PaymentMethod = string.Empty,
+                    IsRecurring = false,
+                    TransactionDate = when,
+                    CategoryId = categoryId.Value
+                });
+            }
+
+            return list;
         }
 
         [HttpGet]

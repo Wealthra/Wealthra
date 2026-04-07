@@ -8,18 +8,18 @@ namespace Wealthra.Infrastructure.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<Category> builder)
         {
-            // Set Table Name
             builder.ToTable("Categories");
 
-            // Key
             builder.HasKey(x => x.Id);
 
-            // Properties
-            builder.Property(x => x.Name)
+            builder.Property(x => x.NameEn)
                 .HasMaxLength(100)
                 .IsRequired();
 
-            // Relationships
+            builder.Property(x => x.NameTr)
+                .HasMaxLength(100)
+                .IsRequired();
+
             builder.HasMany(x => x.Budgets)
                 .WithOne(x => x.Category)
                 .HasForeignKey(x => x.CategoryId)
@@ -30,8 +30,7 @@ namespace Wealthra.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Index for unique category names per user
-            builder.HasIndex(x => new { x.Name, x.CreatedBy })
+            builder.HasIndex(x => x.NameEn)
                 .IsUnique();
         }
     }

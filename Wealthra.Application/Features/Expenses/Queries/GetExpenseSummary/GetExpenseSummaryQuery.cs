@@ -67,7 +67,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 $"Week of {weekStart:MMM dd}",
                 weekExpenses.Sum(e => e.Amount),
                 weekExpenses.Count,
-                weekExpenses.GroupBy(e => e.Category.Name)
+                weekExpenses.GroupBy(e => e.Category.NameEn)
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();
@@ -90,7 +90,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 monthStart.ToString("MMMM yyyy"),
                 monthExpenses.Sum(e => e.Amount),
                 monthExpenses.Count,
-                monthExpenses.GroupBy(e => e.Category.Name)
+                monthExpenses.GroupBy(e => e.Category.NameEn)
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();
@@ -111,7 +111,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 year.ToString(),
                 yearExpenses.Sum(e => e.Amount),
                 yearExpenses.Count,
-                yearExpenses.GroupBy(e => e.Category.Name)
+                yearExpenses.GroupBy(e => e.Category.NameEn)
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();

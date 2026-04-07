@@ -14,6 +14,7 @@ namespace Wealthra.Application.Features.Analytics.Queries.GetMonthlyCategoryMetr
     {
         public int CategoryId { get; set; }
         public string CategoryName { get; set; }
+        public string CategoryNameTr { get; set; }
         public decimal TotalSpend { get; set; }
         public decimal TotalIncome { get; set; }
         public decimal SpendPercentageOfIncome { get; set; }
@@ -44,6 +45,7 @@ namespace Wealthra.Application.Features.Analytics.Queries.GetMonthlyCategoryMetr
                 {
                     CategoryId = m.CategoryId,
                     CategoryName = m.CategoryName,
+                    CategoryNameTr = m.CategoryNameTr,
                     TotalSpend = m.TotalSpend,
                     TotalIncome = m.TotalIncome,
                     SpendPercentageOfIncome = m.SpendPercentageOfIncome,
