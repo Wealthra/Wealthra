@@ -48,7 +48,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                 // Flag if any category takes > 30% of income.
                 if (metric.SpendPercentageOfIncome > 30)
                 {
-                    var msg = $"Uyarı: '{metric.CategoryNameTr}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{Math.Round(metric.SpendPercentageOfIncome, 1)}'ini oluşturuyor.";
+                    var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{Math.Round(metric.SpendPercentageOfIncome, 1)}'ini oluşturuyor.";
                     
                     var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("toplam gelirinizin %"));
                     if (!alreadySent)
@@ -77,7 +77,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                     if (increaseRatio > 1.5m)
                     {
                         var percentageIncrease = (increaseRatio - 1) * 100;
-                        var msg = $"Uyarı: '{metric.CategoryNameTr}' kategorisindeki harcamalarınız geçen aya göre %{Math.Round(percentageIncrease, 1)} artış gösterdi.";
+                        var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız geçen aya göre %{Math.Round(percentageIncrease, 1)} artış gösterdi.";
                         
                         var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("geçen aya göre %"));
                         if (!alreadySent)

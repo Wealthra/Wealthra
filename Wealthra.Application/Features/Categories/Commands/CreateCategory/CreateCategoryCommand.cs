@@ -5,19 +5,15 @@ using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.CreateCategory;
 
-public record CreateCategoryCommand(string NameEn, string NameTr) : IRequest<int>;
+public record CreateCategoryCommand(string CategoryName) : IRequest<int>;
 
 public class CreateCategoryCommandValidator : AbstractValidator<CreateCategoryCommand>
 {
     public CreateCategoryCommandValidator()
     {
-        RuleFor(v => v.NameEn)
-            .NotEmpty().WithMessage("English category name is required.")
-            .MaximumLength(100).WithMessage("English category name must not exceed 100 characters.");
-
-        RuleFor(v => v.NameTr)
-            .NotEmpty().WithMessage("Turkish category name is required.")
-            .MaximumLength(100).WithMessage("Turkish category name must not exceed 100 characters.");
+        RuleFor(v => v.CategoryName)
+            .NotEmpty().WithMessage("Category name is required.")
+            .MaximumLength(100).WithMessage("Category name must not exceed 100 characters.");
     }
 }
 
@@ -35,7 +31,8 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
 
     public async Task<int> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
-        var category = new Category(request.NameEn, request.NameTr);
+        var name = request.CategoryName.Trim();
+        var category = new Category(name, name);
 
         _context.Categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);

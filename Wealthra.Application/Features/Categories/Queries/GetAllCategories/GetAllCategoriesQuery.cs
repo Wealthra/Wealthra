@@ -29,7 +29,7 @@ public class GetAllCategoriesQueryHandler : IRequestHandler<GetAllCategoriesQuer
 
         var categories = await _context.Categories
             .OrderBy(c => c.NameEn)
-            .Select(c => new CategoryDto(c.Id, c.NameEn, c.NameTr))
+            .Select(c => new CategoryDto(c.Id, c.NameEn))
             .ToListAsync(cancellationToken);
 
         await _cacheService.SetAsync(CacheKey, categories, null, cancellationToken);

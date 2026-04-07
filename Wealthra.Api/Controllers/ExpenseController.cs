@@ -6,6 +6,7 @@ using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
+using Wealthra.Application.Features.Expenses.Commands.CreateExpensesBulk;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
 using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
 using Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
@@ -15,8 +16,6 @@ using Wealthra.Application.Features.Expenses.Queries.GetExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetUserExpenses;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseGeneralInfo;
-using Wealthra.Domain.Entities;
-
 namespace Wealthra.Api.Controllers
 {
     [Authorize]
@@ -40,11 +39,18 @@ namespace Wealthra.Api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = expenseId }, expenseId);
         }
 
+        [HttpPost("bulk")]
+        public async Task<ActionResult<IReadOnlyList<int>>> BulkCreate([FromBody] List<CreateExpenseBulkItem> items, CancellationToken cancellationToken)
+        {
+            var ids = await Mediator.Send(new CreateExpensesBulkCommand { Items = items }, cancellationToken);
+            return Ok(ids);
+        }
+
         [HttpPost("extract-from-image")]
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
-        public async Task<ActionResult<IReadOnlyList<Expense>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<IReadOnlyList<ExpenseDto>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
         {
             if (file.Length == 0)
             {
@@ -61,9 +67,9 @@ namespace Wealthra.Api.Controllers
                     return BadRequest("No categories configured for the current user.");
                 }
 
-                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.NameEn, c.NameTr));
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.CategoryName));
                 var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
-                return Ok(MapExtractedToExpenseEntities(enriched, categories));
+                return Ok(MapExtractedToExpenseDtos(enriched, categories));
             }
             catch (Exception ex)
             {
@@ -75,7 +81,7 @@ namespace Wealthra.Api.Controllers
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 25 * 1024 * 1024)]
-        public async Task<ActionResult<IReadOnlyList<Expense>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
+        public async Task<ActionResult<IReadOnlyList<ExpenseDto>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
         {
             if (file.Length == 0)
             {
@@ -92,9 +98,9 @@ namespace Wealthra.Api.Controllers
                     return BadRequest("No categories configured for the current user.");
                 }
 
-                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.NameEn, c.NameTr));
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.CategoryName));
                 var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
-                return Ok(MapExtractedToExpenseEntities(enriched, categories));
+                return Ok(MapExtractedToExpenseDtos(enriched, categories));
             }
             catch (Exception ex)
             {
@@ -103,17 +109,17 @@ namespace Wealthra.Api.Controllers
         }
 
         /// <summary>
-        /// Maps enriched extraction rows to <see cref="Expense"/> instances (not persisted). CategoryId is taken from
-        /// <see cref="ExtractedExpenseDto.SuggestedCategoryId"/> when it matches an application category; otherwise the
-        /// lowest category id for the user is used.
+        /// Maps enriched extraction rows to DTOs (not persisted; <see cref="ExpenseDto.Id"/> is 0). CategoryId comes from
+        /// <see cref="ExtractedExpenseDto.SuggestedCategoryId"/> when it matches a user category; otherwise the lowest category id.
         /// </summary>
-        private static IReadOnlyList<Expense> MapExtractedToExpenseEntities(
+        private static IReadOnlyList<ExpenseDto> MapExtractedToExpenseDtos(
             IReadOnlyList<ExtractedExpenseDto> enriched,
             List<CategoryDto> categories)
         {
             var defaultCategoryId = categories.Min(c => c.Id);
             var allowed = categories.Select(c => c.Id).ToHashSet();
-            var list = new List<Expense>(enriched.Count);
+            var byId = categories.ToDictionary(c => c.Id);
+            var list = new List<ExpenseDto>(enriched.Count);
 
             foreach (var e in enriched)
             {
@@ -133,15 +139,16 @@ namespace Wealthra.Api.Controllers
                     when = when.ToUniversalTime();
                 }
 
-                list.Add(new Expense
-                {
-                    Description = e.Description,
-                    Amount = e.Amount,
-                    PaymentMethod = string.Empty,
-                    IsRecurring = false,
-                    TransactionDate = when,
-                    CategoryId = categoryId.Value
-                });
+                var cat = byId[categoryId.Value];
+                list.Add(new ExpenseDto(
+                    0,
+                    e.Description,
+                    e.Amount,
+                    string.Empty,
+                    false,
+                    when,
+                    categoryId.Value,
+                    cat.CategoryName));
             }
 
             return list;

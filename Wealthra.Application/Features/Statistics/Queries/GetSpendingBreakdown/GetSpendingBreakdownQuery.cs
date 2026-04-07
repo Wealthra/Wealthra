@@ -54,7 +54,6 @@ public class GetSpendingBreakdownQueryHandler : IRequestHandler<GetSpendingBreak
             .GroupBy(e => e.CategoryId)
             .Select(g => new CategoryBreakdownItem(
                 g.First().Category.NameEn,
-                g.First().Category.NameTr,
                 g.Sum(e => e.Amount),
                 totalAmount > 0 ? (g.Sum(e => e.Amount) / totalAmount) * 100 : 0,
                 g.Count()))

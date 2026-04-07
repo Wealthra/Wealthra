@@ -29,8 +29,7 @@ public class GetBudgetByIdQueryHandler : IRequestHandler<GetBudgetByIdQuery, Bud
                 b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
                 GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
                 b.CategoryId,
-                b.Category.NameEn,
-                b.Category.NameTr))
+                b.Category.NameEn))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (budget == null)

@@ -48,7 +48,6 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
                 Month = targetDate,
                 CategoryId = 1,
                 CategoryName = "Dining Out",
-                CategoryNameTr = "Dining Out",
                 TotalSpend = 1500,
                 TotalIncome = 4000,
                 SpendPercentageOfIncome = 37.5m, // > 30%
@@ -98,7 +97,6 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
                 Month = targetDate,
                 CategoryId = 2,
                 CategoryName = "Shopping",
-                CategoryNameTr = "Shopping",
                 TotalSpend = 1600,
                 TotalIncome = 10000,
                 SpendPercentageOfIncome = 16m, // < 30%
@@ -147,7 +145,6 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
                 Month = targetDate,
                 CategoryId = 3,
                 CategoryName = "Groceries",
-                CategoryNameTr = "Groceries",
                 TotalSpend = 500,
                 TotalIncome = 5000,
                 SpendPercentageOfIncome = 10m, // < 30%
@@ -189,7 +186,6 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
                 Month = targetDate,
                 CategoryId = 1,
                 CategoryName = "Dining Out",
-                CategoryNameTr = "Dining Out",
                 TotalSpend = 1500,
                 TotalIncome = 4000,
                 SpendPercentageOfIncome = 37.5m, // > 30%

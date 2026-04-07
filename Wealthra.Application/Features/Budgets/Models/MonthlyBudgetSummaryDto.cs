@@ -5,8 +5,7 @@ namespace Wealthra.Application.Features.Budgets.Models;
 /// </summary>
 public record MonthlyBudgetCategoryDto(
     int BudgetId,
-    string CategoryNameEn,
-    string CategoryNameTr,
+    string CategoryName,
     decimal LimitAmount,
     decimal SpentThisMonth,
     decimal RemainingAmount,

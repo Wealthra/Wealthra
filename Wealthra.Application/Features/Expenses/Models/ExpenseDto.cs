@@ -8,5 +8,4 @@ public record ExpenseDto(
     bool IsRecurring,
     DateTime TransactionDate,
     int CategoryId,
-    string CategoryNameEn,
-    string CategoryNameTr);
+    string CategoryName);

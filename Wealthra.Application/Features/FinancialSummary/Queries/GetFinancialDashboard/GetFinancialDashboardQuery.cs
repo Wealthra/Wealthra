@@ -57,8 +57,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 e.Description,
                 e.Amount,
                 e.TransactionDate,
-                e.Category.NameEn,
-                e.Category.NameTr))
+                e.Category.NameEn))
             .ToListAsync(cancellationToken);
 
         var recentIncomes = await _context.Incomes
@@ -71,7 +70,6 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 i.Name,
                 i.Amount,
                 i.TransactionDate,
-                null,
                 null))
             .ToListAsync(cancellationToken);
 
@@ -95,19 +93,14 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
 
         var categoryNames = await _context.Categories
             .Where(c => categoryIds.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => (c.NameEn, c.NameTr), cancellationToken);
+            .ToDictionaryAsync(c => c.Id, c => c.NameEn, cancellationToken);
 
         var topCategories = rawExpenseData
             .GroupBy(e => e.CategoryId)
-            .Select(g =>
-            {
-                if (!categoryNames.TryGetValue(g.Key, out var nm))
-                {
-                    return new TopCategoryDto("Unknown", string.Empty, g.Sum(e => e.Amount), g.Count());
-                }
-
-                return new TopCategoryDto(nm.NameEn, nm.NameTr, g.Sum(e => e.Amount), g.Count());
-            })
+            .Select(g => new TopCategoryDto(
+                categoryNames.GetValueOrDefault(g.Key, "Unknown"),
+                g.Sum(e => e.Amount),
+                g.Count()))
             .OrderByDescending(c => c.TotalAmount)
             .Take(5)
             .ToList();
@@ -126,7 +119,6 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 return new BudgetAlertDto(
                     b.Id,
                     b.Category.NameEn,
-                    b.Category.NameTr,
                     b.LimitAmount,
                     b.CurrentAmount,
                     percentage,

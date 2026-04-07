@@ -30,7 +30,7 @@ public class GetMonthlyBudgetQueryHandler : IRequestHandler<GetMonthlyBudgetQuer
         // 1. Load all user budgets with category names
         var budgets = await _context.Budgets
             .Where(b => b.CreatedBy == userId)
-            .Select(b => new { b.Id, b.CategoryId, b.LimitAmount, b.Category.NameEn, b.Category.NameTr })
+            .Select(b => new { b.Id, b.CategoryId, b.LimitAmount, CategoryName = b.Category.NameEn })
             .ToListAsync(cancellationToken);
 
         if (budgets.Count == 0)
@@ -66,7 +66,7 @@ public class GetMonthlyBudgetQueryHandler : IRequestHandler<GetMonthlyBudgetQuer
                     _      => "Safe"
                 };
                 return new MonthlyBudgetCategoryDto(
-                    b.Id, b.NameEn, b.NameTr, b.LimitAmount, spent,
+                    b.Id, b.CategoryName, b.LimitAmount, spent,
                     remaining, percentage, status);
             })
             .OrderByDescending(c => c.PercentageUsed)

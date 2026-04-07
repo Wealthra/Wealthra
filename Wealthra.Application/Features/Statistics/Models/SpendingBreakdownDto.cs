@@ -7,8 +7,7 @@ public record SpendingBreakdownDto(
     DateTime EndDate);
 
 public record CategoryBreakdownItem(
-    string CategoryNameEn,
-    string CategoryNameTr,
+    string CategoryName,
     decimal Amount,
     decimal Percentage,
     int TransactionCount);
