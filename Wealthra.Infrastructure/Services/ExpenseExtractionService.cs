@@ -54,7 +54,7 @@ namespace Wealthra.Infrastructure.Services
                 throw new InvalidOperationException("Upstream extraction returned an invalid payload.");
             }
 
-            return payload.Expenses
+            var mapped = payload.Expenses
                 .Where(x => x.Amount is not null && !string.IsNullOrWhiteSpace(x.Description))
                 .Select(x => new ExtractedExpenseDto
                 {
@@ -64,8 +64,21 @@ namespace Wealthra.Infrastructure.Services
                     CategoryHint = x.CategoryHint,
                     Confidence = x.Confidence is null ? null : Convert.ToDecimal(x.Confidence.Value, CultureInfo.InvariantCulture),
                     Source = x.Source ?? "unknown"
-                })
-                .ToList();
+                });
+
+            return DeduplicateLineItems(mapped).ToList();
+        }
+
+        private static IEnumerable<ExtractedExpenseDto> DeduplicateLineItems(IEnumerable<ExtractedExpenseDto> items)
+        {
+            return items
+                .GroupBy(x => (NormalizeDescription(x.Description), x.Amount))
+                .Select(g => g
+                    .OrderByDescending(x => x.Confidence ?? 0m)
+                    .First());
+
+            static string NormalizeDescription(string? description) =>
+                (description ?? string.Empty).Trim().ToUpperInvariant();
         }
 
         private sealed class ExtractExpenseResponse

@@ -8,9 +8,12 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      # Must match what the server uses in `.env` as WEALTHRA_API_IMAGE (see Deploy step).
+      API_IMAGE: ghcr.io/wealthra/wealthra-api:latest
     permissions:
       contents: read
-      packages: write 
+      packages: write
 
     steps:
       - name: Checkout Code
@@ -29,7 +32,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/wealthra/wealthra-api:latest
+          tags: ${{ env.API_IMAGE }}
 
       - name: Copy docker-compose to Server
         uses: appleboy/scp-action@master
@@ -42,22 +45,28 @@ jobs:
 
       - name: Deploy on Server
         uses: appleboy/ssh-action@master
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SETTINGS_SECRET: ${{ secrets.JWT_SETTINGS_SECRET }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: POSTGRES_PASSWORD,JWT_SETTINGS_SECRET,GROQ_API_KEY
           script: |
+            set -euo pipefail
             cd /root/wealthra-backend
-            cat > .env <<EOF
-            GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
-            EOF
-            
-            # Log the server into the Organization's GHCR
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Pull the newest image and restart the API seamlessly
-            docker compose pull
+            umask 077
+            printf '%s\n' \
+              "POSTGRES_USER=wealthra_user" \
+              "POSTGRES_DB=wealthra_db" \
+              "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+              "JWT_SETTINGS_SECRET=${JWT_SETTINGS_SECRET}" \
+              "GROQ_API_KEY=${GROQ_API_KEY}" \
+              "WEALTHRA_API_IMAGE=${{ env.API_IMAGE }}" \
+              > .env
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker compose pull api
             docker compose up -d
-            
-            # Clean up old unused images
             docker system prune -f

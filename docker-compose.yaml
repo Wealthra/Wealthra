@@ -15,29 +15,30 @@ services:
     container_name: wealthra_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wealthra_user
-      POSTGRES_PASSWORD: YourStrongDbPassword123!
-      POSTGRES_DB: wealthra_db
+      POSTGRES_USER: ${POSTGRES_USER:-wealthra_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-wealthra_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   api:
+    image: ${WEALTHRA_API_IMAGE:-wealthra-api:local}
     build:
       context: .
       dockerfile: Dockerfile
-    image: wealthra-api:local
     container_name: wealthra_api
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=wealthra_db;Username=wealthra_user;Password=YourStrongDbPassword123!
-      - JwtSettings__Secret=REPLACE_THIS_WITH_A_SUPER_SECRET_KEY_AT_LEAST_32_CHARS_LONG
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB:-wealthra_db};Username=${POSTGRES_USER:-wealthra_user};Password=${POSTGRES_PASSWORD}
+      - JwtSettings__Secret=${JWT_SETTINGS_SECRET:?Set JWT_SETTINGS_SECRET in .env (see .env.example)}
       - JwtSettings__Issuer=WealthraApi
       - JwtSettings__Audience=WealthraApp
       - JwtSettings__ExpiryMinutes=60
       - ExtractionServices__OcrBaseUrl=http://ocr:8000/
       - ExtractionServices__SttBaseUrl=http://stt:8000/
       - ExtractionServices__TimeoutSeconds=120
+      - Groq__ApiKey=${GROQ_API_KEY:?Set GROQ_API_KEY in .env (see .env.example)}
     depends_on:
       - db
       - ocr

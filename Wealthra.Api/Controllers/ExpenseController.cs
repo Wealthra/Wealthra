@@ -5,6 +5,7 @@ using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
+using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
 using Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
 using Wealthra.Application.Features.Expenses.Models;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseById;
@@ -19,10 +20,14 @@ namespace Wealthra.Api.Controllers
     public class ExpensesController : ApiControllerBase
     {
         private readonly IExpenseExtractionService _expenseExtractionService;
+        private readonly IExpenseExtractionEnrichmentService _expenseExtractionEnrichmentService;
 
-        public ExpensesController(IExpenseExtractionService expenseExtractionService)
+        public ExpensesController(
+            IExpenseExtractionService expenseExtractionService,
+            IExpenseExtractionEnrichmentService expenseExtractionEnrichmentService)
         {
             _expenseExtractionService = expenseExtractionService;
+            _expenseExtractionEnrichmentService = expenseExtractionEnrichmentService;
         }
 
         [HttpPost]
@@ -47,7 +52,10 @@ namespace Wealthra.Api.Controllers
             {
                 await using var stream = file.OpenReadStream();
                 var extracted = await _expenseExtractionService.ExtractFromImageAsync(stream, file.FileName, cancellationToken);
-                return Ok(extracted);
+                var categories = await Mediator.Send(new GetAllCategoriesQuery(), cancellationToken);
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.Name));
+                var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
+                return Ok(enriched);
             }
             catch (Exception ex)
             {
@@ -70,7 +78,10 @@ namespace Wealthra.Api.Controllers
             {
                 await using var stream = file.OpenReadStream();
                 var extracted = await _expenseExtractionService.ExtractFromAudioAsync(stream, file.FileName, cancellationToken);
-                return Ok(extracted);
+                var categories = await Mediator.Send(new GetAllCategoriesQuery(), cancellationToken);
+                var categoryOptions = categories.ConvertAll(c => new ExpenseCategoryOption(c.Id, c.Name));
+                var enriched = await _expenseExtractionEnrichmentService.EnrichAsync(extracted, categoryOptions, cancellationToken);
+                return Ok(enriched);
             }
             catch (Exception ex)
             {

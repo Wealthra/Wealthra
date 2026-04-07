@@ -29,6 +29,7 @@ services:
       - ExtractionServices__OcrBaseUrl=http://ocr:8000/
       - ExtractionServices__SttBaseUrl=http://stt:8000/
       - ExtractionServices__TimeoutSeconds=120
+      - Groq__ApiKey=${GROQ_API_KEY}
     depends_on:
       - db
       - ocr

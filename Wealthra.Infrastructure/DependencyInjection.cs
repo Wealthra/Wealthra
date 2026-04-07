@@ -78,6 +78,21 @@ namespace Wealthra.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 60);
             });
 
+            services.AddHttpClient("GroqClient", client =>
+            {
+                client.BaseAddress = new Uri("https://api.groq.com/");
+                client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("Groq:TimeoutSeconds") ?? 120);
+            });
+
+            if (!string.IsNullOrWhiteSpace(configuration["Groq:ApiKey"]))
+            {
+                services.AddScoped<IExpenseExtractionEnrichmentService, GroqExpenseExtractionEnrichmentService>();
+            }
+            else
+            {
+                services.AddScoped<IExpenseExtractionEnrichmentService, NullExpenseExtractionEnrichmentService>();
+            }
+
             return services;
         }
     }
