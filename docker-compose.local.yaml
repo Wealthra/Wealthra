@@ -41,7 +41,7 @@ services:
 
   ocr:
     build:
-      context: ../wealthra-ocr
+      context: ./wealthra-ocr
       dockerfile: Dockerfile
     image: wealthra-ocr:local
     container_name: wealthra_ocr_local
@@ -53,7 +53,7 @@ services:
 
   stt:
     build:
-      context: ../wealthra-stt
+      context: ./wealthra-stt
       dockerfile: Dockerfile
     image: wealthra-stt:local
     container_name: wealthra_stt_local

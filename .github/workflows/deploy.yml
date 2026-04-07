@@ -18,24 +18,8 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout API (this repo)
+      - name: Checkout monorepo (API + wealthra-ocr + wealthra-stt)
         uses: actions/checkout@v4
-        with:
-          path: api
-
-      - name: Checkout OCR service repo
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/wealthra-ocr
-          token: ${{ secrets.GHCR_TOKEN }}
-          path: wealthra-ocr
-
-      - name: Checkout STT service repo
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/wealthra-stt
-          token: ${{ secrets.GHCR_TOKEN }}
-          path: wealthra-stt
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -47,8 +31,8 @@ jobs:
       - name: Build and Push API Image
         uses: docker/build-push-action@v5
         with:
-          context: ./api
-          file: ./api/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ env.API_IMAGE }}
 
@@ -74,7 +58,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "api/docker-compose.yaml,api/Caddyfile"
+          source: "docker-compose.yaml,Caddyfile"
           target: "/root/wealthra-backend"
 
       - name: Deploy on Server

@@ -21,8 +21,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Production: set WEALTHRA_*_IMAGE in .env (see deploy workflow). No build contexts — server has no ../wealthra-ocr.
-  # Local builds: use docker-compose.local.yaml instead.
+  # Production: set WEALTHRA_*_IMAGE in .env (see deploy workflow). Runtime uses pre-built images only.
+  # Local builds: docker-compose.local.yaml builds from ./wealthra-ocr and ./wealthra-stt in this repo.
   api:
     image: ${WEALTHRA_API_IMAGE:?Set WEALTHRA_API_IMAGE in .env (registry image, e.g. ghcr.io/org/wealthra-api:latest)}
     container_name: wealthra_api

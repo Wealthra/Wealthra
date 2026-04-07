@@ -318,6 +318,10 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Python extraction services (wealthra-ocr / wealthra-stt in monorepo)
+wealthra-ocr/.venv/
+wealthra-stt/.venv/
+
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config

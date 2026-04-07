@@ -34,3 +34,7 @@ node_modules
 # Other
 *.dbmdl
 *.pidb
+
+# Python services — separate images; keep API build context small
+wealthra-ocr/
+wealthra-stt/
