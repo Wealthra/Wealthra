@@ -66,6 +66,17 @@ namespace Wealthra.Infrastructure
 
             // 6. OCR
             services.AddSingleton<IOcrService, TesseractOcrService>();
+            services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();
+            services.AddHttpClient("OcrClient", client =>
+            {
+                client.BaseAddress = new Uri(configuration["ExtractionServices:OcrBaseUrl"]!);
+                client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 60);
+            });
+            services.AddHttpClient("SttClient", client =>
+            {
+                client.BaseAddress = new Uri(configuration["ExtractionServices:SttBaseUrl"]!);
+                client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 60);
+            });
 
             return services;
         }

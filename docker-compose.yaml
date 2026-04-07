@@ -34,10 +34,29 @@ services:
       - JwtSettings__Issuer=WealthraApi
       - JwtSettings__Audience=WealthraApp
       - JwtSettings__ExpiryMinutes=60
+      - ExtractionServices__OcrBaseUrl=http://ocr:8000/
+      - ExtractionServices__SttBaseUrl=http://stt:8000/
+      - ExtractionServices__TimeoutSeconds=120
     depends_on:
       - db
+      - ocr
+      - stt
     volumes:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
+
+  ocr:
+    image: ghcr.io/wealthra/wealthra-ocr:latest
+    container_name: wealthra_ocr
+    restart: unless-stopped
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+
+  stt:
+    image: ghcr.io/wealthra/wealthra-stt:latest
+    container_name: wealthra_stt
+    restart: unless-stopped
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
 
 volumes:
   postgres_data:

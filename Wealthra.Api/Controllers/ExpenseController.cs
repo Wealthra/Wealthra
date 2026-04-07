@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
+using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
@@ -17,11 +18,62 @@ namespace Wealthra.Api.Controllers
     [Authorize]
     public class ExpensesController : ApiControllerBase
     {
+        private readonly IExpenseExtractionService _expenseExtractionService;
+
+        public ExpensesController(IExpenseExtractionService expenseExtractionService)
+        {
+            _expenseExtractionService = expenseExtractionService;
+        }
+
         [HttpPost]
         public async Task<ActionResult<int>> Create(CreateExpenseCommand command)
         {
             var expenseId = await Mediator.Send(command);
             return CreatedAtAction(nameof(GetById), new { id = expenseId }, expenseId);
+        }
+
+        [HttpPost("extract-from-image")]
+        [DisableRequestSizeLimit]
+        [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
+        public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
+        {
+            if (file.Length == 0)
+            {
+                return BadRequest("Uploaded image is empty.");
+            }
+
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var extracted = await _expenseExtractionService.ExtractFromImageAsync(stream, file.FileName, cancellationToken);
+                return Ok(extracted);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, $"OCR extraction service unavailable: {ex.Message}");
+            }
+        }
+
+        [HttpPost("extract-from-audio")]
+        [DisableRequestSizeLimit]
+        [RequestFormLimits(MultipartBodyLengthLimit = 25 * 1024 * 1024)]
+        public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
+        {
+            if (file.Length == 0)
+            {
+                return BadRequest("Uploaded audio is empty.");
+            }
+
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var extracted = await _expenseExtractionService.ExtractFromAudioAsync(stream, file.FileName, cancellationToken);
+                return Ok(extracted);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, $"STT extraction service unavailable: {ex.Message}");
+            }
         }
 
         [HttpGet]
