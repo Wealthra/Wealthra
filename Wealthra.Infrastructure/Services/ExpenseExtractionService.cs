@@ -54,6 +54,8 @@ namespace Wealthra.Infrastructure.Services
                 throw new InvalidOperationException("Upstream extraction returned an invalid payload.");
             }
 
+            // Preserve every upstream line (including repeated description+amount). Do not merge here —
+            // the OCR/STT service may return distinct rows for separate purchases (e.g. two breads).
             var mapped = payload.Expenses
                 .Where(x => x.Amount is not null && !string.IsNullOrWhiteSpace(x.Description))
                 .Select(x => new ExtractedExpenseDto
@@ -66,19 +68,7 @@ namespace Wealthra.Infrastructure.Services
                     Source = x.Source ?? "unknown"
                 });
 
-            return DeduplicateLineItems(mapped).ToList();
-        }
-
-        private static IEnumerable<ExtractedExpenseDto> DeduplicateLineItems(IEnumerable<ExtractedExpenseDto> items)
-        {
-            return items
-                .GroupBy(x => (NormalizeDescription(x.Description), x.Amount))
-                .Select(g => g
-                    .OrderByDescending(x => x.Confidence ?? 0m)
-                    .First());
-
-            static string NormalizeDescription(string? description) =>
-                (description ?? string.Empty).Trim().ToUpperInvariant();
+            return mapped.ToList();
         }
 
         private sealed class ExtractExpenseResponse

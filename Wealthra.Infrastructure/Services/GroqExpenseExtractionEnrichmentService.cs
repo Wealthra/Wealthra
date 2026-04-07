@@ -73,7 +73,8 @@ namespace Wealthra.Infrastructure.Services
                     "ALLOWED_CATEGORIES (JSON array — you MUST ONLY pick categoryId from these id values, or null if none fit):\n" +
                     categoriesJson +
                     "\n\nRules:\n" +
-                    "- Merge only true duplicates (same product and same amount).\n" +
+                    "- CRITICAL: Output exactly one expense per input element, in the same order. Same length as INPUT. " +
+                    "Never merge or drop rows — if two lines are both 'bread' with the same price, output two separate objects.\n" +
                     "- Expand terse store abbreviations when obvious (e.g. GV → Great Value on grocery receipts).\n" +
                     "- description: short, clear product name.\n" +
                     "- amount: preserve numeric totals exactly as in input.\n" +
@@ -122,17 +123,23 @@ namespace Wealthra.Infrastructure.Services
                     throw new InvalidOperationException("Groq JSON contained no expenses.");
                 }
 
+                if (parsed.Expenses.Count != extracted.Count)
+                {
+                    _logger.LogWarning(
+                        "Groq returned {GroqCount} rows but OCR/STT had {ExtractedCount}; refusing merge — using raw extraction with no enrichment.",
+                        parsed.Expenses.Count,
+                        extracted.Count);
+                    return extracted;
+                }
+
                 var allowedIds = new HashSet<int>(applicationCategories.Select(c => c.Id));
                 var idToName = applicationCategories.ToDictionary(c => c.Id, c => c.Name);
 
-                static string NormalizeDescription(string? d) =>
-                    (d ?? string.Empty).Trim().ToUpperInvariant();
-
-                var sharedCategoryHint = extracted.Select(e => e.CategoryHint).FirstOrDefault(h => !string.IsNullOrWhiteSpace(h));
-
                 var result = new List<ExtractedExpenseDto>(parsed.Expenses.Count);
-                foreach (var row in parsed.Expenses)
+                for (var i = 0; i < parsed.Expenses.Count; i++)
                 {
+                    var row = parsed.Expenses[i];
+                    var source = extracted[i];
                     if (string.IsNullOrWhiteSpace(row.Description))
                     {
                         continue;
@@ -150,19 +157,7 @@ namespace Wealthra.Infrastructure.Services
                     var description = row.Description.Trim();
                     if (!date.HasValue)
                     {
-                        var match = extracted.FirstOrDefault(e =>
-                            NormalizeDescription(e.Description) == NormalizeDescription(description) &&
-                            e.Amount == amount);
-                        if (match is null)
-                        {
-                            var byAmount = extracted.Where(e => e.Amount == amount).ToList();
-                            if (byAmount.Count == 1)
-                            {
-                                match = byAmount[0];
-                            }
-                        }
-
-                        date = match?.Date;
+                        date = source.Date;
                     }
 
                     int? categoryId = row.CategoryId;
@@ -183,7 +178,7 @@ namespace Wealthra.Infrastructure.Services
                         Description = description,
                         Amount = amount,
                         Date = date,
-                        CategoryHint = sharedCategoryHint,
+                        CategoryHint = source.CategoryHint,
                         SuggestedCategoryId = categoryId,
                         CategorySuggestion = categoryName,
                         Confidence = 0.85m,
@@ -196,19 +191,20 @@ namespace Wealthra.Infrastructure.Services
                     return extracted;
                 }
 
-                if (result.Count < extracted.Count)
+                if (result.Count != extracted.Count)
                 {
                     _logger.LogWarning(
-                        "Groq returned fewer rows ({Enriched}) than OCR ({Ocr}); using enriched list anyway.",
+                        "After filtering, enriched row count ({Enriched}) != OCR count ({Ocr}); using raw extraction.",
                         result.Count,
                         extracted.Count);
+                    return extracted;
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Groq enrichment failed; returning OCR deduplicated results.");
+                _logger.LogWarning(ex, "Groq enrichment failed; returning raw extraction results.");
                 return extracted;
             }
         }
