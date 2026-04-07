@@ -21,11 +21,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # Production: set WEALTHRA_*_IMAGE in .env (see deploy workflow). No build contexts — server has no ../wealthra-ocr.
+  # Local builds: use docker-compose.local.yaml instead.
   api:
-    image: ${WEALTHRA_API_IMAGE:-wealthra-api:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${WEALTHRA_API_IMAGE:?Set WEALTHRA_API_IMAGE in .env (registry image, e.g. ghcr.io/org/wealthra-api:latest)}
     container_name: wealthra_api
     restart: unless-stopped
     environment:
@@ -47,20 +46,14 @@ services:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
 
   ocr:
-    build:
-      context: ../wealthra-ocr
-      dockerfile: Dockerfile
-    image: wealthra-ocr:local
+    image: ${WEALTHRA_OCR_IMAGE:?Set WEALTHRA_OCR_IMAGE in .env (registry image for the Python OCR service)}
     container_name: wealthra_ocr
     restart: unless-stopped
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
 
   stt:
-    build:
-      context: ../wealthra-stt
-      dockerfile: Dockerfile
-    image: wealthra-stt:local
+    image: ${WEALTHRA_STT_IMAGE:?Set WEALTHRA_STT_IMAGE in .env (registry image for the STT service)}
     container_name: wealthra_stt
     restart: unless-stopped
     environment:

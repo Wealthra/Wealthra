@@ -9,15 +9,31 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      # Must match what the server uses in `.env` as WEALTHRA_API_IMAGE (see Deploy step).
+      # Must match what the server `.env` sets as WEALTHRA_*_IMAGE (see Deploy step).
       API_IMAGE: ghcr.io/wealthra/wealthra-api:latest
+      OCR_IMAGE: ghcr.io/wealthra/wealthra-ocr:latest
+      STT_IMAGE: ghcr.io/wealthra/wealthra-stt:latest
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout Code
+      - name: Checkout API (this repo)
         uses: actions/checkout@v4
+        with:
+          path: api
+
+      - name: Checkout OCR service repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/wealthra-ocr
+          path: wealthra-ocr
+
+      - name: Checkout STT service repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/wealthra-stt
+          path: wealthra-stt
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -29,10 +45,26 @@ jobs:
       - name: Build and Push API Image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./api
+          file: ./api/Dockerfile
           push: true
           tags: ${{ env.API_IMAGE }}
+
+      - name: Build and Push OCR Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./wealthra-ocr
+          file: ./wealthra-ocr/Dockerfile
+          push: true
+          tags: ${{ env.OCR_IMAGE }}
+
+      - name: Build and Push STT Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./wealthra-stt
+          file: ./wealthra-stt/Dockerfile
+          push: true
+          tags: ${{ env.STT_IMAGE }}
 
       - name: Copy docker-compose to Server
         uses: appleboy/scp-action@master
@@ -40,7 +72,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yaml,Caddyfile"
+          source: "api/docker-compose.yaml,api/Caddyfile"
           target: "/root/wealthra-backend"
 
       - name: Deploy on Server
@@ -65,8 +97,10 @@ jobs:
               "JWT_SETTINGS_SECRET=${JWT_SETTINGS_SECRET}" \
               "GROQ_API_KEY=${GROQ_API_KEY}" \
               "WEALTHRA_API_IMAGE=${{ env.API_IMAGE }}" \
+              "WEALTHRA_OCR_IMAGE=${{ env.OCR_IMAGE }}" \
+              "WEALTHRA_STT_IMAGE=${{ env.STT_IMAGE }}" \
               > .env
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            docker compose pull api
+            docker compose pull api ocr stt
             docker compose up -d
             docker system prune -f
