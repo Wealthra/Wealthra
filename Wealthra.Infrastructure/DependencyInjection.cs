@@ -64,9 +64,9 @@ namespace Wealthra.Infrastructure
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-            // 6. OCR
-            services.AddSingleton<IOcrService, TesseractOcrService>();
+            // 6. Expense extraction gateways
             services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();
+            services.AddScoped<IOcrService, RemoteOcrService>();
             services.AddHttpClient("OcrClient", client =>
             {
                 client.BaseAddress = new Uri(configuration["ExtractionServices:OcrBaseUrl"]!);

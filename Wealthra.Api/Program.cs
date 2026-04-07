@@ -79,6 +79,58 @@ builder.Services.AddOpenApi(options =>
 
         return Task.CompletedTask;
     });
+
+    // Fix file-upload operations: MapOpenApi reflects IFormFile as a flat object (ContentType, FileName, …).
+    // Swagger should show multipart/form-data with a single binary `file` part — matches the controller.
+    options.AddOperationTransformer((operation, context, cancellationToken) =>
+    {
+        var relativePath = context.Description.RelativePath ?? string.Empty;
+        if (!string.Equals(context.Description.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
+        string? filePartDescription = null;
+        if (relativePath.Contains("extract-from-image", StringComparison.OrdinalIgnoreCase))
+        {
+            filePartDescription = "Receipt image (PNG, JPEG, etc.)";
+        }
+        else if (relativePath.Contains("extract-from-audio", StringComparison.OrdinalIgnoreCase))
+        {
+            filePartDescription = "Audio file (WAV, MP3, etc.)";
+        }
+        else
+        {
+            return Task.CompletedTask;
+        }
+
+        operation.RequestBody = new OpenApiRequestBody
+        {
+            Required = true,
+            Content = new Dictionary<string, OpenApiMediaType>
+            {
+                ["multipart/form-data"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema
+                    {
+                        Type = JsonSchemaType.Object,
+                        Properties = new Dictionary<string, IOpenApiSchema>
+                        {
+                            ["file"] = new OpenApiSchema
+                            {
+                                Type = JsonSchemaType.String,
+                                Format = "binary",
+                                Description = filePartDescription
+                            }
+                        },
+                        Required = new HashSet<string> { "file" }
+                    }
+                }
+            }
+        };
+
+        return Task.CompletedTask;
+    });
 });
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

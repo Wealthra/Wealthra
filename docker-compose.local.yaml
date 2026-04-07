@@ -1,35 +1,26 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy_proxy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    command: caddy reverse-proxy --from 89.167.80.182.nip.io --to http://api:8080
-    depends_on:
-      - api
-
   db:
     image: postgres:15-alpine
-    container_name: wealthra_db
+    container_name: wealthra_db_local
     restart: unless-stopped
     environment:
       POSTGRES_USER: wealthra_user
       POSTGRES_PASSWORD: YourStrongDbPassword123!
       POSTGRES_DB: wealthra_db
+    ports:
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_local:/var/lib/postgresql/data
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
     image: wealthra-api:local
-    container_name: wealthra_api
+    container_name: wealthra_api_local
     restart: unless-stopped
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=wealthra_db;Username=wealthra_user;Password=YourStrongDbPassword123!
       - JwtSettings__Secret=REPLACE_THIS_WITH_A_SUPER_SECRET_KEY_AT_LEAST_32_CHARS_LONG
       - JwtSettings__Issuer=WealthraApi
@@ -42,29 +33,35 @@ services:
       - db
       - ocr
       - stt
+    ports:
+      - "8080:8080"
     volumes:
-      - aspnet_keys:/root/.aspnet/DataProtection-Keys
+      - aspnet_keys_local:/root/.aspnet/DataProtection-Keys
 
   ocr:
     build:
       context: ../wealthra-ocr
       dockerfile: Dockerfile
     image: wealthra-ocr:local
-    container_name: wealthra_ocr
+    container_name: wealthra_ocr_local
     restart: unless-stopped
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
+    ports:
+      - "8001:8000"
 
   stt:
     build:
       context: ../wealthra-stt
       dockerfile: Dockerfile
     image: wealthra-stt:local
-    container_name: wealthra_stt
+    container_name: wealthra_stt_local
     restart: unless-stopped
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
+    ports:
+      - "8002:8000"
 
 volumes:
-  postgres_data:
-  aspnet_keys:
+  postgres_data_local:
+  aspnet_keys_local:

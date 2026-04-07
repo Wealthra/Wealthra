@@ -33,6 +33,7 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpPost("extract-from-image")]
+        [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 15 * 1024 * 1024)]
         public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromImage([FromForm] IFormFile file, CancellationToken cancellationToken)
@@ -55,6 +56,7 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpPost("extract-from-audio")]
+        [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = 25 * 1024 * 1024)]
         public async Task<ActionResult<IReadOnlyList<ExtractedExpenseDto>>> ExtractFromAudio([FromForm] IFormFile file, CancellationToken cancellationToken)
