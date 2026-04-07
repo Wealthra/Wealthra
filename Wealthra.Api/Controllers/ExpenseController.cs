@@ -39,8 +39,11 @@ namespace Wealthra.Api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = expenseId }, expenseId);
         }
 
+        /// <summary>Body must be a JSON array: <c>[{ ... }, { ... }]</c>.</summary>
         [HttpPost("bulk")]
-        public async Task<ActionResult<IReadOnlyList<int>>> BulkCreate([FromBody] List<CreateExpenseBulkItem> items, CancellationToken cancellationToken)
+        public async Task<ActionResult<IReadOnlyList<int>>> BulkCreate(
+            [FromBody] List<CreateExpenseBulkItem> items,
+            CancellationToken cancellationToken)
         {
             var ids = await Mediator.Send(new CreateExpensesBulkCommand { Items = items }, cancellationToken);
             return Ok(ids);
