@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using System.Collections.Generic;
 
 namespace Wealthra.Infrastructure.Identity.Models
@@ -8,6 +8,7 @@ namespace Wealthra.Infrastructure.Identity.Models
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string? AvatarUrl { get; set; }
+        public string PreferredCurrency { get; set; } = "TRY";
         public DateTime CreatedAt { get; set; }
         public DateTime? LastLoginDate { get; set; }
 

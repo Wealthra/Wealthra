@@ -15,26 +15,32 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICacheService _cacheService;
+    private readonly IIdentityService _identityService;
 
     public GetDashboardWebQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        IIdentityService identityService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cacheService = cacheService;
+        _identityService = identityService;
     }
 
     public async Task<DashboardWebDto> Handle(GetDashboardWebQuery request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.UserId;
+        var userId = _currentUserService.UserId ?? string.Empty;
         var cacheKey = $"dashboard_web_{userId}";
         var cached = await _cacheService.GetAsync<DashboardWebDto>(cacheKey, cancellationToken);
         if (cached != null)
         {
             return cached;
         }
+
+        var userDetails = await _identityService.GetUserDetailsAsync(userId);
+        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
 
         var now = DateTime.UtcNow;
         var periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -221,7 +227,8 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
             savingsRate,
             activeBudgetsCount,
             new DashboardWebGoalsCountDto(totalGoals, achievedGoals),
-            unreadNotifications);
+            unreadNotifications,
+            prefCurrency);
 
         var charts = new DashboardWebChartsDto(
             new DashboardWebIncomeExpenseTrendDto("month", trendPoints),
@@ -236,7 +243,8 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
             totalGoals,
             achievedGoals,
             goalsCurrent,
-            goalsTarget);
+            goalsTarget,
+            prefCurrency);
 
         var dto = new DashboardWebDto(summary, charts, lists, goalsOverview, recommendations);
 

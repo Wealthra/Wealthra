@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Wealthra.Domain.Common;
 
 namespace Wealthra.Domain.Entities
@@ -7,6 +7,7 @@ namespace Wealthra.Domain.Entities
     {
         public string Description { get; set; }
         public decimal Amount { get; set; }
+        public string Currency { get; set; } = "TRY";
         public string PaymentMethod { get; set; }
         public bool IsRecurring { get; set; }
         public DateTime TransactionDate { get; set; }

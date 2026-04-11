@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -140,7 +140,8 @@ namespace Wealthra.Infrastructure.Identity.Services
                 user.FirstName,
                 user.LastName,
                 user.AvatarUrl,
-                user.CreatedAt
+                user.CreatedAt,
+                user.PreferredCurrency
             );
         }
 
@@ -153,6 +154,19 @@ namespace Wealthra.Infrastructure.Identity.Services
             user.LastName = lastName;
             user.AvatarUrl = avatarUrl;
 
+            var result = await _userManager.UpdateAsync(user);
+            return result.ToApplicationResult();
+        }
+
+        public async Task<Result> ChangePreferredCurrencyAsync(string userId, string currency)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return Result.Failure(new[] { "User not found" });
+
+            if (currency != "TRY" && currency != "USD" && currency != "EUR")
+                return Result.Failure(new[] { "Unsupported currency." });
+
+            user.PreferredCurrency = currency;
             var result = await _userManager.UpdateAsync(user);
             return result.ToApplicationResult();
         }

@@ -11,6 +11,7 @@ public record CreateGoalCommand : IRequest<int>
     public decimal TargetAmount { get; init; }
     public decimal CurrentAmount { get; init; }
     public DateTime Deadline { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class CreateGoalCommandValidator : AbstractValidator<CreateGoalCommand>
@@ -53,7 +54,8 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, int>
             Name = request.Name,
             TargetAmount = request.TargetAmount,
             CurrentAmount = request.CurrentAmount,
-            Deadline = request.Deadline
+            Deadline = request.Deadline,
+            Currency = request.Currency ?? "TRY"
         };
 
         _context.Goals.Add(entity);

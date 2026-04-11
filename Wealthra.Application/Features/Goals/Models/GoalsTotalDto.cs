@@ -6,4 +6,5 @@ public record GoalsTotalDto(
     decimal OverallProgressPercentage,
     int TotalGoals,
     int AchievedGoals,
-    int NotAchievedGoals);
+    int NotAchievedGoals,
+    string Currency);

@@ -58,6 +58,9 @@ namespace Wealthra.Infrastructure
             services.AddDistributedMemoryCache(); 
             services.AddScoped<ICacheService, CacheService>();
 
+            // Currency Exchange Service
+            services.AddHttpClient<ICurrencyExchangeService, FrankfurterExchangeService>();
+
             // 5. Services
             services.AddTransient<DateTimeService>();
             services.AddTransient<IIdentityService, IdentityService>();

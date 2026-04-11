@@ -14,6 +14,7 @@ public record UpdateIncomeCommand : IRequest<Unit>
     public string Method { get; init; }
     public bool IsRecurring { get; init; }
     public DateTime TransactionDate { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class UpdateIncomeCommandValidator : AbstractValidator<UpdateIncomeCommand>
@@ -61,6 +62,7 @@ public class UpdateIncomeCommandHandler : IRequestHandler<UpdateIncomeCommand, U
         income.Method = request.Method;
         income.IsRecurring = request.IsRecurring;
         income.TransactionDate = request.TransactionDate;
+        income.Currency = request.Currency ?? "TRY";
 
         await _context.SaveChangesAsync(cancellationToken);
 

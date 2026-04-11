@@ -12,6 +12,7 @@ public record CreateIncomeCommand : IRequest<int>
     public string Method { get; init; }
     public bool IsRecurring { get; init; }
     public DateTime TransactionDate { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class CreateIncomeCommandValidator : AbstractValidator<CreateIncomeCommand>
@@ -51,7 +52,8 @@ public class CreateIncomeCommandHandler : IRequestHandler<CreateIncomeCommand, i
             Amount = request.Amount,
             Method = request.Method,
             IsRecurring = request.IsRecurring,
-            TransactionDate = request.TransactionDate
+            TransactionDate = request.TransactionDate,
+            Currency = request.Currency ?? "TRY"
         };
 
         _context.Incomes.Add(entity);

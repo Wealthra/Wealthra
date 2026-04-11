@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -21,6 +21,7 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
         public bool IsRecurring { get; init; }
         public int CategoryId { get; init; }
         public DateTime TransactionDate { get; init; }
+        public string Currency { get; init; } = "TRY";
     }
 
     // 2. The Validator
@@ -45,12 +46,14 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly ISender _sender;
+        private readonly ICurrencyExchangeService _currencyService;
 
-        public CreateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
+        public CreateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender, ICurrencyExchangeService currencyService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _sender = sender;
+            _currencyService = currencyService;
         }
 
         public async Task<int> Handle(CreateExpenseCommand request, CancellationToken cancellationToken)
@@ -74,6 +77,7 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
                 IsRecurring = request.IsRecurring,
                 CategoryId = request.CategoryId,
                 TransactionDate = request.TransactionDate,
+                Currency = request.Currency ?? "TRY",
                 // CreatedBy is handled by Infrastructure Auditing automatically
             };
 
@@ -84,8 +88,14 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
 
             if (budget != null)
             {
+                decimal amountToAdd = request.Amount;
+                if (!string.Equals(request.Currency ?? "TRY", budget.Currency ?? "TRY", StringComparison.OrdinalIgnoreCase))
+                {
+                    amountToAdd = await _currencyService.ConvertAsync(request.Amount, request.Currency ?? "TRY", budget.Currency ?? "TRY", cancellationToken);
+                }
+                
                 // This method creates Domain Events if limit exceeded
-                budget.AddExpense(request.Amount);
+                budget.AddExpense(amountToAdd);
             }
 
             _context.Expenses.Add(entity);

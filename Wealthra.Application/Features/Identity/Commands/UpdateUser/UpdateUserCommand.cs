@@ -1,48 +1,51 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MediatR;
-using Wealthra.Application.Common.Exceptions;
+using System;
+using System.Collections.Generic;
+using System.Text;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
-using ValidationException = Wealthra.Application.Common.Exceptions.ValidationException;
 
-namespace Wealthra.Application.Features.Identity.Commands.UpdatePassword
+namespace Wealthra.Application.Features.Identity.Commands.UpdateUser
 {
-    public record UpdatePasswordCommand(string CurrentPassword, string NewPassword) : IRequest<Result>;
+    public record UpdateUserCommand(string FirstName, string LastName, string? AvatarUrl): IRequest<Result>;
 
-    public class UpdatePasswordCommandValidator : AbstractValidator<UpdatePasswordCommand>
+    public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
     {
-        public UpdatePasswordCommandValidator()
+        public UpdateUserCommandValidator()
         {
-            RuleFor(v => v.CurrentPassword).NotEmpty();
-            RuleFor(v => v.NewPassword).NotEmpty().MinimumLength(8)
-                .NotEqual(v => v.CurrentPassword).WithMessage("New password must be different from current password.");
+            RuleFor(x => x.FirstName)
+                .NotEmpty().WithMessage("First name is required.")
+                .MaximumLength(50).WithMessage("First name cannot exceed 50 characters.");
+            RuleFor(x => x.LastName)
+                .NotEmpty().WithMessage("Last name is required.")
+                .MaximumLength(50).WithMessage("Last name cannot exceed 50 characters.");
+            RuleFor(x => x.AvatarUrl)
+                .Must(uri => string.IsNullOrEmpty(uri) || Uri.IsWellFormedUriString(uri, UriKind.Absolute))
+                .WithMessage("Avatar URL must be a valid URL.");
         }
     }
 
-    public class UpdatePasswordCommandHandler : IRequestHandler<UpdatePasswordCommand, Result>
+
+    public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Result>
     {
         private readonly IIdentityService _identityService;
         private readonly ICurrentUserService _currentUserService;
 
-        public UpdatePasswordCommandHandler(IIdentityService identityService, ICurrentUserService currentUserService)
+        public UpdateUserCommandHandler(IIdentityService identityService, ICurrentUserService currentUserService)
         {
             _identityService = identityService;
             _currentUserService = currentUserService;
         }
 
-        public async Task<Result> Handle(UpdatePasswordCommand request, CancellationToken cancellationToken)
+        public async Task<Result> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
         {
-            var result = await _identityService.ChangePasswordAsync(
-                _currentUserService.UserId!,
-                request.CurrentPassword,
-                request.NewPassword);
-
-            if (!result.Succeeded)
-            {
-                throw new ValidationException(result.Errors.GroupBy(e => "Password", e => e).ToDictionary(g => g.Key, g => g.ToArray()));
-            }
-
+            var userId = _currentUserService.UserId;
+            if (string.IsNullOrEmpty(userId))
+                return Result.Failure(new[] { "User not authenticated." });
+            var result = await _identityService.UpdateUserAsync(userId, request.FirstName, request.LastName, request.AvatarUrl);
             return result;
         }
     }
+
 }

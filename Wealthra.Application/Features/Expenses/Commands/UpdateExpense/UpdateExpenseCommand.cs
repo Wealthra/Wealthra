@@ -16,6 +16,7 @@ public record UpdateExpenseCommand : IRequest<Unit>
     public bool IsRecurring { get; init; }
     public int CategoryId { get; init; }
     public DateTime TransactionDate { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class UpdateExpenseCommandValidator : AbstractValidator<UpdateExpenseCommand>
@@ -41,12 +42,14 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISender _sender;
+    private readonly ICurrencyExchangeService _currencyService;
 
-    public UpdateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
+    public UpdateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender, ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _sender = sender;
+        _currencyService = currencyService;
     }
 
     public async Task<Unit> Handle(UpdateExpenseCommand request, CancellationToken cancellationToken)
@@ -68,17 +71,19 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
         }
 
         var oldAmount = expense.Amount;
+        var oldCurrency = expense.Currency ?? "TRY";
         var oldCategoryId = expense.CategoryId;
 
         expense.Description = request.Description;
         expense.Amount = request.Amount;
+        expense.Currency = request.Currency ?? "TRY";
         expense.PaymentMethod = request.PaymentMethod;
         expense.IsRecurring = request.IsRecurring;
         expense.CategoryId = request.CategoryId;
         expense.TransactionDate = request.TransactionDate;
 
         // Update budget logic: Adjust CurrentAmount
-        if (oldAmount != request.Amount || oldCategoryId != request.CategoryId)
+        if (oldAmount != request.Amount || oldCategoryId != request.CategoryId || !string.Equals(oldCurrency, request.Currency ?? "TRY", StringComparison.OrdinalIgnoreCase))
         {
             // Remove old amount from old budget
             if (oldCategoryId > 0)
@@ -88,7 +93,10 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
 
                 if (oldBudget != null)
                 {
-                    oldBudget.RemoveExpense(oldAmount);
+                    decimal removeAmount = oldAmount;
+                    if (!string.Equals(oldCurrency, oldBudget.Currency ?? "TRY", StringComparison.OrdinalIgnoreCase))
+                        removeAmount = await _currencyService.ConvertAsync(oldAmount, oldCurrency, oldBudget.Currency ?? "TRY", cancellationToken);
+                    oldBudget.RemoveExpense(removeAmount);
                 }
             }
 
@@ -98,7 +106,10 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
 
             if (newBudget != null)
             {
-                newBudget.AddExpense(request.Amount);
+                decimal addAmount = request.Amount;
+                if (!string.Equals(request.Currency ?? "TRY", newBudget.Currency ?? "TRY", StringComparison.OrdinalIgnoreCase))
+                    addAmount = await _currencyService.ConvertAsync(request.Amount, request.Currency ?? "TRY", newBudget.Currency ?? "TRY", cancellationToken);
+                newBudget.AddExpense(addAmount);
             }
         }
 

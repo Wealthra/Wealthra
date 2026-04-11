@@ -1,4 +1,4 @@
-﻿namespace Wealthra.Application.Features.Identity.Models
+namespace Wealthra.Application.Features.Identity.Models
 {
     public record UserDto(
         string Id,
@@ -6,6 +6,7 @@
         string FirstName,
         string LastName,
         string? AvatarUrl,
-        DateTime CreatedAt
+        DateTime CreatedAt,
+        string PreferredCurrency
     );
 }

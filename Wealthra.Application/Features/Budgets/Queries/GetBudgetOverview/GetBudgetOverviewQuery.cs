@@ -11,11 +11,15 @@ public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQu
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IIdentityService _identityService;
+    private readonly ICurrencyExchangeService _currencyService;
 
-    public GetBudgetOverviewQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public GetBudgetOverviewQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService, IIdentityService identityService, ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _identityService = identityService;
+        _currencyService = currencyService;
     }
 
     public async Task<BudgetOverviewDto> Handle(GetBudgetOverviewQuery request, CancellationToken cancellationToken)
@@ -24,23 +28,36 @@ public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQu
         var currentMonthStart = new DateTime(now.Year, now.Month, 1);
         var currentMonthEnd = currentMonthStart.AddMonths(1);
 
+        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
+        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
+
         var budgets = await _context.Budgets
             .Where(b => b.CreatedBy == _currentUserService.UserId)
+            .Select(b => new { b.LimitAmount, b.CurrentAmount, Currency = b.Currency ?? "TRY" })
             .ToListAsync(cancellationToken);
 
-        // Get expenses for current month
-        var currentMonthExpenses = await _context.Expenses
-            .Where(e => e.CreatedBy == _currentUserService.UserId &&
-                       e.TransactionDate >= currentMonthStart &&
-                       e.TransactionDate < currentMonthEnd)
-            .SumAsync(e => e.Amount, cancellationToken);
+        decimal totalLimit = 0;
+        decimal totalSpent = 0;
+        int budgetsExceeded = 0;
+        int budgetsWarning = 0;
 
-        var totalLimit = budgets.Sum(b => b.LimitAmount);
-        var totalSpent = budgets.Sum(b => b.CurrentAmount);
+        foreach (var b in budgets)
+        {
+            var limitInPref = await _currencyService.ConvertAsync(b.LimitAmount, b.Currency, prefCurrency, cancellationToken);
+            var spentInPref = await _currencyService.ConvertAsync(b.CurrentAmount, b.Currency, prefCurrency, cancellationToken);
+
+            totalLimit += limitInPref;
+            totalSpent += spentInPref;
+
+            if (b.LimitAmount > 0)
+            {
+                var percentage = (b.CurrentAmount / b.LimitAmount) * 100;
+                if (percentage >= 100) budgetsExceeded++;
+                else if (percentage >= 80) budgetsWarning++;
+            }
+        }
+
         var percentageUsed = totalLimit > 0 ? (totalSpent / totalLimit) * 100 : 0;
-
-        var budgetsExceeded = budgets.Count(b => b.LimitAmount > 0 && (b.CurrentAmount / b.LimitAmount) * 100 >= 100);
-        var budgetsWarning = budgets.Count(b => b.LimitAmount > 0 && (b.CurrentAmount / b.LimitAmount) * 100 >= 80 && (b.CurrentAmount / b.LimitAmount) * 100 < 100);
 
         var overallStatus = percentageUsed switch
         {
@@ -56,6 +73,7 @@ public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQu
             overallStatus,
             budgets.Count,
             budgetsExceeded,
-            budgetsWarning);
+            budgetsWarning,
+            prefCurrency);
     }
 }

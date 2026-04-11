@@ -7,4 +7,5 @@ public record BudgetOverviewDto(
     string OverallStatus,
     int TotalBudgets,
     int BudgetsExceeded,
-    int BudgetsWarning);
+    int BudgetsWarning,
+    string Currency);

@@ -10,6 +10,7 @@ public record CreateBudgetCommand : IRequest<int>
 {
     public int CategoryId { get; init; }
     public decimal LimitAmount { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class CreateBudgetCommandValidator : AbstractValidator<CreateBudgetCommand>
@@ -58,7 +59,7 @@ public class CreateBudgetCommandHandler : IRequestHandler<CreateBudgetCommand, i
         }
 
         // Create new budget
-        var entity = new Budget(request.CategoryId, request.LimitAmount);
+        var entity = new Budget(request.CategoryId, request.LimitAmount, request.Currency ?? "TRY");
 
         _context.Budgets.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);

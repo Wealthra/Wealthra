@@ -13,6 +13,7 @@ public record UpdateGoalCommand : IRequest<Unit>
     public decimal TargetAmount { get; init; }
     public decimal CurrentAmount { get; init; }
     public DateTime Deadline { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
 
 public class UpdateGoalCommandValidator : AbstractValidator<UpdateGoalCommand>
@@ -63,6 +64,7 @@ public class UpdateGoalCommandHandler : IRequestHandler<UpdateGoalCommand, Unit>
         goal.TargetAmount = request.TargetAmount;
         goal.CurrentAmount = request.CurrentAmount;
         goal.Deadline = request.Deadline;
+        goal.Currency = request.Currency ?? "TRY";
 
         await _context.SaveChangesAsync(cancellationToken);
 

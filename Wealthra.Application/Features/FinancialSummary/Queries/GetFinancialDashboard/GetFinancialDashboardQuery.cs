@@ -12,15 +12,21 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICacheService _cacheService;
+    private readonly IIdentityService _identityService;
+    private readonly ICurrencyExchangeService _currencyService;
 
     public GetFinancialDashboardQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        IIdentityService identityService,
+        ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cacheService = cacheService;
+        _identityService = identityService;
+        _currencyService = currencyService;
     }
 
     public async Task<FinancialDashboardDto> Handle(GetFinancialDashboardQuery request, CancellationToken cancellationToken)
@@ -28,20 +34,40 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         var cacheKey = $"dashboard_{_currentUserService.UserId}";
 
         // Try to get from cache first
+        // Note: For simplicity here, we might invalidate cache differently if we change preferred currency.
         var cachedDashboard = await _cacheService.GetAsync<FinancialDashboardDto>(cacheKey, cancellationToken);
         if (cachedDashboard != null)
         {
             return cachedDashboard;
         }
 
-        // Calculate totals
-        var totalIncome = await _context.Incomes
-            .Where(i => i.CreatedBy == _currentUserService.UserId)
-            .SumAsync(i => i.Amount, cancellationToken);
+        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
+        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
 
-        var totalExpenses = await _context.Expenses
+        // Calculate totals dynamically using the currency exchange service
+        var incomeGroups = await _context.Incomes
+            .Where(i => i.CreatedBy == _currentUserService.UserId)
+            .GroupBy(i => i.Currency ?? "TRY")
+            .Select(g => new { Currency = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToListAsync(cancellationToken);
+
+        decimal totalIncome = 0;
+        foreach (var group in incomeGroups)
+        {
+            totalIncome += await _currencyService.ConvertAsync(group.Total, group.Currency, prefCurrency, cancellationToken);
+        }
+
+        var expenseGroups = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId)
-            .SumAsync(e => e.Amount, cancellationToken);
+            .GroupBy(e => e.Currency ?? "TRY")
+            .Select(g => new { Currency = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToListAsync(cancellationToken);
+
+        decimal totalExpenses = 0;
+        foreach (var group in expenseGroups)
+        {
+            totalExpenses += await _currencyService.ConvertAsync(group.Total, group.Currency, prefCurrency, cancellationToken);
+        }
 
         var totalBalance = totalIncome - totalExpenses;
 
@@ -56,6 +82,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 "Expense",
                 e.Description,
                 e.Amount,
+                e.Currency ?? "TRY",
                 e.TransactionDate,
                 e.Category.NameEn))
             .ToListAsync(cancellationToken);
@@ -69,6 +96,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 "Income",
                 i.Name,
                 i.Amount,
+                i.Currency ?? "TRY",
                 i.TransactionDate,
                 null))
             .ToListAsync(cancellationToken);
@@ -80,26 +108,32 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             .ToList();
 
         // Get top spending categories (last 30 days)
-        // Note: EF Core cannot translate GroupBy+Join in a single pipeline,
-        // so we fetch the raw data first and group in memory.
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
 
         var rawExpenseData = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId && e.TransactionDate >= thirtyDaysAgo)
-            .Select(e => new { e.CategoryId, e.Amount })
+            .Select(e => new { e.CategoryId, e.Amount, Currency = e.Currency ?? "TRY" })
             .ToListAsync(cancellationToken);
 
-        var categoryIds = rawExpenseData.Select(e => e.CategoryId).Distinct().ToList();
+        var convertedExpenses = new List<(int CategoryId, decimal Amount)>();
+        foreach (var e in rawExpenseData)
+        {
+            var amt = await _currencyService.ConvertAsync(e.Amount, e.Currency, prefCurrency, cancellationToken);
+            convertedExpenses.Add((e.CategoryId, amt));
+        }
+
+        var categoryIds = convertedExpenses.Select(e => e.CategoryId).Distinct().ToList();
 
         var categoryNames = await _context.Categories
             .Where(c => categoryIds.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, c => c.NameEn, cancellationToken);
 
-        var topCategories = rawExpenseData
+        var topCategories = convertedExpenses
             .GroupBy(e => e.CategoryId)
             .Select(g => new TopCategoryDto(
                 categoryNames.GetValueOrDefault(g.Key, "Unknown"),
                 g.Sum(e => e.Amount),
+                prefCurrency,
                 g.Count()))
             .OrderByDescending(c => c.TotalAmount)
             .Take(5)
@@ -121,6 +155,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                     b.Category.NameEn,
                     b.LimitAmount,
                     b.CurrentAmount,
+                    b.Currency ?? "TRY",
                     percentage,
                     percentage >= 100 ? "Exceeded" : "Warning");
             })
@@ -139,7 +174,8 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             recentTransactions,
             topCategories,
             alerts,
-            unreadNotifications);
+            unreadNotifications,
+            prefCurrency);
 
         // Cache for 5 minutes
         await _cacheService.SetAsync(cacheKey, dashboard, TimeSpan.FromMinutes(5), cancellationToken);

@@ -17,7 +17,8 @@ public record DashboardWebSummaryDto(
     decimal SavingsRate,
     int ActiveBudgetsCount,
     DashboardWebGoalsCountDto GoalsCount,
-    int UnreadNotificationsCount);
+    int UnreadNotificationsCount,
+    string Currency);
 
 public record DashboardWebGoalsCountDto(int Total, int Achieved);
 
@@ -77,7 +78,8 @@ public record DashboardWebGoalsOverviewDto(
     int TotalGoals,
     int AchievedGoals,
     decimal CurrentAmount,
-    decimal LimitAmount);
+    decimal LimitAmount,
+    string Currency);
 
 public record DashboardWebRecommendationDto(
     string Id,

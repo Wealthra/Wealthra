@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Identity.Models; // Import the new model
 
@@ -13,6 +13,7 @@ namespace Wealthra.Application.Common.Interfaces
         Task<Result> DeleteUserAsync(string userId);
         Task<UserDto?> GetUserDetailsAsync(string userId);
         Task<Result> UpdateUserAsync(string userId, string firstName, string lastName, string? avatarUrl);
+        Task<Result> ChangePreferredCurrencyAsync(string userId, string currency);
         Task<Result> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
     }
 }

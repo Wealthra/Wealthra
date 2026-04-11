@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Wealthra.Domain.Common;
 using Wealthra.Domain.Events;
 using Wealthra.Domain.Exceptions;
@@ -9,16 +9,18 @@ namespace Wealthra.Domain.Entities
     {
         public decimal LimitAmount { get; private set; }
         public decimal CurrentAmount { get; private set; }
+        public string Currency { get; private set; }
 
         // Foreign Keys
         public int CategoryId { get; private set; }
         public virtual Category Category { get; private set; }
 
-        public Budget(int categoryId, decimal limitAmount)
+        public Budget(int categoryId, decimal limitAmount, string currency = "TRY")
         {
             CategoryId = categoryId;
             LimitAmount = limitAmount;
             CurrentAmount = 0;
+            Currency = currency;
         }
 
         public void UpdateLimit(decimal newLimit)

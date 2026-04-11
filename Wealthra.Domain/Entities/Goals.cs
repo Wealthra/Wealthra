@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Wealthra.Domain.Common;
 
 namespace Wealthra.Domain.Entities
@@ -8,6 +8,7 @@ namespace Wealthra.Domain.Entities
         public string Name { get; set; }
         public decimal TargetAmount { get; set; }
         public decimal CurrentAmount { get; set; } 
+        public string Currency { get; set; } = "TRY";
         public DateTime Deadline { get; set; }
 
         public decimal CalculateProgressPercentage()

@@ -9,6 +9,8 @@ using Wealthra.Application.Features.Identity.Commands.Register;
 using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
+using Wealthra.Application.Features.Identity.Commands.UpdateUser;
+using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
 
 namespace Wealthra.Api.Controllers
 {
@@ -92,6 +94,13 @@ namespace Wealthra.Api.Controllers
 
         [HttpPut("update-password")]
         public async Task<ActionResult> UpdatePassword(UpdatePasswordCommand command)
+        {
+            await Mediator.Send(command);
+            return NoContent();
+        }
+
+        [HttpPut("preferred-currency")]
+        public async Task<ActionResult> ChangePreferredCurrency([FromBody] ChangePreferredCurrencyCommand command)
         {
             await Mediator.Send(command);
             return NoContent();
