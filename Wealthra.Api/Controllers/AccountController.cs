@@ -73,8 +73,9 @@ namespace Wealthra.Api.Controllers
             {
                 HttpOnly = true,
                 Expires = expires,
-                Secure = true, // Must be true for SameSite=None
-                SameSite = SameSiteMode.None // Changed from Strict for cross-origin (SPA) compat
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Path = "/"
             };
 
             Response.Cookies.Append("refresh-token", token, cookieOptions);
