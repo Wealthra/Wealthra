@@ -53,7 +53,6 @@ namespace Wealthra.Infrastructure
                     ClockSkew = TimeSpan.Zero
                 };
 
-                
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
@@ -65,6 +64,17 @@ namespace Wealthra.Infrastructure
                         return Task.CompletedTask;
                     }
                 };
+            });
+
+            services.AddAuthorization();
+
+            // Antiforgery — protect mutating endpoints from CSRF.
+            services.AddAntiforgery(options =>
+            {
+                options.HeaderName  = "X-XSRF-TOKEN"; // header the SPA must send
+                options.Cookie.Name = "XSRF-TOKEN";   // readable (non-HttpOnly) cookie
+                options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+                options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
             });
 
             // 4. Caching
@@ -80,6 +90,7 @@ namespace Wealthra.Infrastructure
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IUsageTrackerService, UsageTrackerService>();
+            services.AddHttpContextAccessor();
 
             // 6. Expense extraction gateways
             services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();

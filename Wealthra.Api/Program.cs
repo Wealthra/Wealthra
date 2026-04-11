@@ -17,19 +17,6 @@ builder.Host.UseSerilog((context, configuration) =>
 // 2. Add Services to DI Container
 builder.Services.AddControllers();
 
-// Antiforgery — protect mutating endpoints from CSRF.
-// The frontend must:
-//   1. Call GET /api/account/csrf-token to receive the XSRF-TOKEN cookie.
-//   2. Echo the token back in the X-XSRF-TOKEN request header on every
-//      POST/PUT/DELETE request.
-builder.Services.AddAntiforgery(options =>
-{
-    options.HeaderName  = "X-XSRF-TOKEN"; // header the SPA must send
-    options.Cookie.Name = "XSRF-TOKEN";   // readable (non-HttpOnly) cookie
-    options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
-    options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
-});
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
