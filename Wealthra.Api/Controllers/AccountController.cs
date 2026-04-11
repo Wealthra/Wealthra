@@ -79,6 +79,13 @@ namespace Wealthra.Api.Controllers
             };
 
             Response.Cookies.Append("refresh-token", token, cookieOptions);
+
+
+            var setCookieHeader = Response.Headers["Set-Cookie"].ToString();
+            if (!string.IsNullOrEmpty(setCookieHeader) && !setCookieHeader.Contains("Partitioned"))
+            {
+                Response.Headers["Set-Cookie"] = setCookieHeader + "; Partitioned";
+            }
         }
 
         [HttpGet("me")]
