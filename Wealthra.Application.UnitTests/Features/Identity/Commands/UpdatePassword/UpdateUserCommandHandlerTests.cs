@@ -5,7 +5,7 @@ using Xunit;
 using Moq;
 using FluentAssertions;
 using Wealthra.Application.Common.Interfaces;
-using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
+using Wealthra.Application.Features.Identity.Commands.UpdateUser;
 
 namespace Wealthra.Application.UnitTests.Features.Identity.Commands.UpdatePassword;
 

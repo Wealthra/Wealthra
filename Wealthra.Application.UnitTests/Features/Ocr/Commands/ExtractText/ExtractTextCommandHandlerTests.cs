@@ -12,14 +12,16 @@ namespace Wealthra.Application.UnitTests.Features.Ocr.Commands.ExtractText;
 public class ExtractTextCommandHandlerTests
 {
     private readonly Mock<IOcrService> _mockIOcrService;
+    private readonly Mock<IUsageTrackerService> _mockIUsageTrackerService;
 
     private readonly ExtractTextCommandHandler _handler;
 
     public ExtractTextCommandHandlerTests()
     {
         _mockIOcrService = new Mock<IOcrService>();
+        _mockIUsageTrackerService = new Mock<IUsageTrackerService>();
 
-        _handler = new ExtractTextCommandHandler(_mockIOcrService.Object);
+        _handler = new ExtractTextCommandHandler(_mockIOcrService.Object, _mockIUsageTrackerService.Object);
     }
 
     [Fact]

@@ -11,6 +11,7 @@ using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
 using Wealthra.Application.Features.Identity.Commands.UpdateUser;
 using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
+using Wealthra.Application.Features.Identity.Commands.UpdateUserTier;
 
 namespace Wealthra.Api.Controllers
 {
@@ -111,6 +112,14 @@ namespace Wealthra.Api.Controllers
         {
             await Mediator.Send(new Wealthra.Application.Features.Identity.Commands.DeleteAccount.DeleteAccountCommand());
             Response.Cookies.Delete("refresh-token");
+            return NoContent();
+        }
+
+        // Admin endpoint for now
+        [HttpPut("admin/update-tier")]
+        public async Task<ActionResult> UpdateTier(UpdateUserTierCommand command)
+        {
+            await Mediator.Send(command);
             return NoContent();
         }
     }

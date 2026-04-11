@@ -66,6 +66,7 @@ namespace Wealthra.Infrastructure
             services.AddTransient<IIdentityService, IdentityService>();
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<IUsageTrackerService, UsageTrackerService>();
 
             // 6. Expense extraction gateways
             services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();

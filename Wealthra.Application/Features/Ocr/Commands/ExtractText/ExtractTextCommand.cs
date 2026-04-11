@@ -47,17 +47,25 @@ namespace Wealthra.Application.Features.Ocr.Commands.ExtractText
     public class ExtractTextCommandHandler : IRequestHandler<ExtractTextCommand, ExtractTextResponse>
     {
         private readonly IOcrService _ocrService;
+        private readonly IUsageTrackerService _usageTrackerService;
 
-        public ExtractTextCommandHandler(IOcrService ocrService)
+        public ExtractTextCommandHandler(IOcrService ocrService, IUsageTrackerService usageTrackerService)
         {
             _ocrService = ocrService;
+            _usageTrackerService = usageTrackerService;
         }
 
         public async Task<ExtractTextResponse> Handle(ExtractTextCommand request, CancellationToken cancellationToken)
         {
+            if (!await _usageTrackerService.CanUseOcrAsync(cancellationToken))
+            {
+                throw new Application.Common.Exceptions.ForbiddenAccessException("OCR quota exceeded or feature not available for your current tier.");
+            }
+
             await using var stream = request.Image.OpenReadStream();
 
             var text = await _ocrService.ExtractTextAsync(stream, request.Language, cancellationToken);
+            await _usageTrackerService.IncrementOcrAsync(cancellationToken);
 
             return new ExtractTextResponse
             {

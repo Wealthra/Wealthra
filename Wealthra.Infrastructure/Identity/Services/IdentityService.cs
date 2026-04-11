@@ -179,6 +179,17 @@ namespace Wealthra.Infrastructure.Identity.Services
             var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
             return result.ToApplicationResult();
         }
+
+        public async Task<bool> UpdateUserTierAsync(string email, Wealthra.Domain.Enums.SubscriptionTier newTier)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null) return false;
+
+            user.SubscriptionTier = newTier;
+            var result = await _userManager.UpdateAsync(user);
+
+            return result.Succeeded;
+        }
     }
 
     public static class IdentityResultExtensions
