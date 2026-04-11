@@ -48,15 +48,20 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                 // Flag if any category takes > 30% of income.
                 if (metric.SpendPercentageOfIncome > 30)
                 {
-                    var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{Math.Round(metric.SpendPercentageOfIncome, 1)}'ini oluşturuyor.";
+                    var percentage = Math.Round(metric.SpendPercentageOfIncome, 1);
+                    var msgEn = $"Alert: Your spending in '{metric.CategoryName}' makes up %{percentage} of your total income this month.";
+                    var msgTr = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{percentage}'ini oluşturuyor.";
                     
-                    var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("toplam gelirinizin %"));
+                    var alreadySent = existingAlerts.Any(n =>
+                        n.RelatedEntityId == metric.CategoryId &&
+                        (n.MessageTr.Contains("toplam gelirinizin %") || n.MessageEn.Contains("total income this month")));
                     if (!alreadySent)
                     {
                         var notification = new Notification
                         {
                             UserId = userId,
-                            Message = msg,
+                            MessageEn = msgEn,
+                            MessageTr = msgTr,
                             Type = NotificationType.Alert,
                             CreatedOn = DateTime.UtcNow,
                             IsRead = false,
@@ -65,7 +70,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
 
                         _context.Notifications.Add(notification);
                         existingAlerts.Add(notification); // Add to local list to prevent duplicates in same run
-                        generatedAlerts.Add(msg);
+                        generatedAlerts.Add(msgEn);
                     }
                 }
 
@@ -77,15 +82,20 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                     if (increaseRatio > 1.5m)
                     {
                         var percentageIncrease = (increaseRatio - 1) * 100;
-                        var msg = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız geçen aya göre %{Math.Round(percentageIncrease, 1)} artış gösterdi.";
+                        var roundedIncrease = Math.Round(percentageIncrease, 1);
+                        var msgEn = $"Alert: Your spending in '{metric.CategoryName}' increased by %{roundedIncrease} compared to last month.";
+                        var msgTr = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız geçen aya göre %{roundedIncrease} artış gösterdi.";
                         
-                        var alreadySent = existingAlerts.Any(n => n.RelatedEntityId == metric.CategoryId && n.Message.Contains("geçen aya göre %"));
+                        var alreadySent = existingAlerts.Any(n =>
+                            n.RelatedEntityId == metric.CategoryId &&
+                            (n.MessageTr.Contains("geçen aya göre %") || n.MessageEn.Contains("compared to last month")));
                         if (!alreadySent)
                         {
                             var notification = new Notification
                             {
                                 UserId = userId,
-                                Message = msg,
+                                MessageEn = msgEn,
+                                MessageTr = msgTr,
                                 Type = NotificationType.Alert,
                                 CreatedOn = DateTime.UtcNow,
                                 IsRead = false,
@@ -94,7 +104,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
 
                             _context.Notifications.Add(notification);
                             existingAlerts.Add(notification);
-                            generatedAlerts.Add(msg);
+                            generatedAlerts.Add(msgEn);
                         }
                     }
                 }
@@ -108,7 +118,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
             // If no new alerts were generated this run, return existing alerts for this month so the client sees them
             if (!generatedAlerts.Any() && existingAlerts.Any())
             {
-                return existingAlerts.Select(n => n.Message).ToList();
+                return existingAlerts.Select(n => n.MessageEn).ToList();
             }
 
             return generatedAlerts;

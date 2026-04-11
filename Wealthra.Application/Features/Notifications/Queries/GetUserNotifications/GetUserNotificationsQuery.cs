@@ -8,6 +8,7 @@ namespace Wealthra.Application.Features.Notifications.Queries.GetUserNotificatio
 public record GetUserNotificationsQuery : IRequest<List<NotificationDto>>
 {
     public bool UnreadOnly { get; init; } = true;
+    public string Language { get; init; } = "en";
 }
 
 public class GetUserNotificationsQueryHandler : IRequestHandler<GetUserNotificationsQuery, List<NotificationDto>>
@@ -23,6 +24,9 @@ public class GetUserNotificationsQueryHandler : IRequestHandler<GetUserNotificat
 
     public async Task<List<NotificationDto>> Handle(GetUserNotificationsQuery request, CancellationToken cancellationToken)
     {
+        var normalizedLanguage = request.Language?.Trim().ToLowerInvariant() ?? "en";
+        var isTurkish = normalizedLanguage == "tr";
+
         var query = _context.Notifications
             .Where(n => n.UserId == _currentUserService.UserId);
 
@@ -35,7 +39,7 @@ public class GetUserNotificationsQueryHandler : IRequestHandler<GetUserNotificat
             .OrderByDescending(n => n.CreatedOn)
             .Select(n => new NotificationDto(
                 n.Id,
-                n.Message,
+                isTurkish ? n.MessageTr : n.MessageEn,
                 n.Type,
                 n.IsRead,
                 n.CreatedOn,

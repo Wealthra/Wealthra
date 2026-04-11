@@ -430,7 +430,11 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Message")
+                    b.Property<string>("MessageEn")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageTr")
                         .IsRequired()
                         .HasColumnType("text");
 

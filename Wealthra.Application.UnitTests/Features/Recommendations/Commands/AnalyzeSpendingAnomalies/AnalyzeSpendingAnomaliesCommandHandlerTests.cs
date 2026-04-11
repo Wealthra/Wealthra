@@ -75,7 +75,8 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
             notifications.Should().HaveCount(1);
             notifications[0].UserId.Should().Be(userId);
             notifications[0].Type.Should().Be(NotificationType.Alert);
-            notifications[0].Message.Should().Contain("Dining Out");
+            notifications[0].MessageEn.Should().Contain("Dining Out");
+            notifications[0].MessageTr.Should().Contain("Dining Out");
             
             _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
@@ -200,7 +201,8 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
             {
                 UserId = userId,
                 RelatedEntityId = 1,
-                Message = "Warning: Dining Out takes up too much of your income (toplam gelirinizin %)",
+                MessageEn = "Warning: Dining Out takes up too much of your income (total income this month)",
+                MessageTr = "Uyarı: Dining Out toplam gelirinizin %",
                 Type = NotificationType.Alert,
                 CreatedOn = new DateTime(targetYear, targetMonth, 2)
             };

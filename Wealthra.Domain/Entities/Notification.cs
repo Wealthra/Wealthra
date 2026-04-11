@@ -7,7 +7,8 @@ namespace Wealthra.Domain.Entities
     public class Notification : BaseEntity
     {
         public string UserId { get; set; } // Maps to Identity User ID
-        public string Message { get; set; }
+        public string MessageEn { get; set; }
+        public string MessageTr { get; set; }
         public NotificationType Type { get; set; }
         public bool IsRead { get; set; } = false;
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;

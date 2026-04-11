@@ -11,9 +11,13 @@ namespace Wealthra.Api.Controllers;
 public class NotificationsController : ApiControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<NotificationDto>>> GetNotifications([FromQuery] bool unreadOnly = true)
+    public async Task<ActionResult<List<NotificationDto>>> GetNotifications([FromQuery] bool unreadOnly = true, [FromQuery] string language = "en")
     {
-        var notifications = await Mediator.Send(new GetUserNotificationsQuery { UnreadOnly = unreadOnly });
+        var notifications = await Mediator.Send(new GetUserNotificationsQuery
+        {
+            UnreadOnly = unreadOnly,
+            Language = language
+        });
         return Ok(notifications);
     }
 
