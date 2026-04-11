@@ -10,10 +10,10 @@ using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
 using Wealthra.Application.Features.Identity.Commands.UpdateUser;
+using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
 using Wealthra.Application.Features.Identity.Commands.UpdateUserTier;
 using Wealthra.Application.Features.Identity.Queries.GetUserUsage;
 using Wealthra.Application.Features.Identity.Queries.SearchUserUsages;
-using Wealthra.Application.Features.Identity.Models;
 
 namespace Wealthra.Api.Controllers
 {
