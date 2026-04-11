@@ -10,8 +10,10 @@ using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
 using Wealthra.Application.Features.Identity.Commands.UpdateUser;
-using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
 using Wealthra.Application.Features.Identity.Commands.UpdateUserTier;
+using Wealthra.Application.Features.Identity.Queries.GetUserUsage;
+using Wealthra.Application.Features.Identity.Queries.SearchUserUsages;
+using Wealthra.Application.Features.Identity.Models;
 
 namespace Wealthra.Api.Controllers
 {
@@ -121,6 +123,21 @@ namespace Wealthra.Api.Controllers
         {
             await Mediator.Send(command);
             return NoContent();
+        }
+
+        [HttpGet("me/usage")]
+        public async Task<ActionResult<UserUsageDto>> GetMyUsage()
+        {
+            var response = await Mediator.Send(new GetUserUsageQuery());
+            return Ok(response);
+        }
+
+        [HttpGet("admin/usages")]
+        public async Task<ActionResult<List<UserUsageDto>>> GetUsersUsage([FromQuery] string? email, [FromQuery] string? name)
+        {
+            var command = new SearchUserUsagesQuery { Email = email, Name = name };
+            var response = await Mediator.Send(command);
+            return Ok(response);
         }
     }
 }

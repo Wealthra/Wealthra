@@ -16,5 +16,7 @@ namespace Wealthra.Application.Common.Interfaces
         Task<Result> ChangePreferredCurrencyAsync(string userId, string currency);
         Task<Result> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
         Task<bool> UpdateUserTierAsync(string email, Wealthra.Domain.Enums.SubscriptionTier newTier);
+        Task<UserUsageDto?> GetUserUsageAsync(string userId);
+        Task<System.Collections.Generic.List<UserUsageDto>> SearchUserUsagesAsync(string? email, string? name);
     }
 }

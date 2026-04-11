@@ -190,6 +190,50 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             return result.Succeeded;
         }
+
+        public async Task<UserUsageDto?> GetUserUsageAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return null;
+
+            return new UserUsageDto(
+                user.Id,
+                user.Email,
+                user.FirstName,
+                user.LastName,
+                user.SubscriptionTier,
+                user.OcrRequestsThisMonth,
+                user.SttRequestsThisMonth,
+                user.LastUsageActivityDate
+            );
+        }
+
+        public async Task<System.Collections.Generic.List<UserUsageDto>> SearchUserUsagesAsync(string? email, string? name)
+        {
+            var query = _userManager.Users.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                query = query.Where(u => u.Email.Contains(email));
+            }
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                query = query.Where(u => u.FirstName.Contains(name) || u.LastName.Contains(name));
+            }
+
+            var limitRows = await query.Take(50).ToListAsync();
+
+            return limitRows.Select(user => new UserUsageDto(
+                user.Id,
+                user.Email,
+                user.FirstName,
+                user.LastName,
+                user.SubscriptionTier,
+                user.OcrRequestsThisMonth,
+                user.SttRequestsThisMonth,
+                user.LastUsageActivityDate
+            )).ToList();
+        }
     }
 
     public static class IdentityResultExtensions
