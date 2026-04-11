@@ -43,6 +43,7 @@ services:
       - db
       - ocr
       - stt
+      - copilot
     volumes:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
 
@@ -61,10 +62,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
 
   copilot:
-    build:
-      context: ./wealthra-copilot
-      dockerfile: Dockerfile
-    image: ${WEALTHRA_COPILOT_IMAGE:-wealthra-copilot:latest}
+    image: ${WEALTHRA_COPILOT_IMAGE:?Set WEALTHRA_COPILOT_IMAGE in .env (registry image for the Copilot service)}
     container_name: wealthra_copilot
     restart: unless-stopped
     environment:

@@ -13,6 +13,7 @@ jobs:
       API_IMAGE: ghcr.io/wealthra/wealthra-api:latest
       OCR_IMAGE: ghcr.io/wealthra/wealthra-ocr:latest
       STT_IMAGE: ghcr.io/wealthra/wealthra-stt:latest
+      COPILOT_IMAGE: ghcr.io/wealthra/wealthra-copilot:latest
     permissions:
       contents: read
       packages: write
@@ -52,6 +53,14 @@ jobs:
           push: true
           tags: ${{ env.STT_IMAGE }}
 
+      - name: Build and Push Copilot Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./wealthra-copilot
+          file: ./wealthra-copilot/Dockerfile
+          push: true
+          tags: ${{ env.COPILOT_IMAGE }}
+
       - name: Copy docker-compose to Server
         uses: appleboy/scp-action@master
         with:
@@ -85,8 +94,9 @@ jobs:
               "WEALTHRA_API_IMAGE=${{ env.API_IMAGE }}" \
               "WEALTHRA_OCR_IMAGE=${{ env.OCR_IMAGE }}" \
               "WEALTHRA_STT_IMAGE=${{ env.STT_IMAGE }}" \
+              "WEALTHRA_COPILOT_IMAGE=${{ env.COPILOT_IMAGE }}" \
               > .env
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            docker compose pull api ocr stt
+            docker compose pull api ocr stt copilot
             docker compose up -d
             docker system prune -f
