@@ -28,6 +28,7 @@ services:
       - JwtSettings__ExpiryMinutes=60
       - ExtractionServices__OcrBaseUrl=http://ocr:8000/
       - ExtractionServices__SttBaseUrl=http://stt:8000/
+      - ExtractionServices__CopilotBaseUrl=http://copilot:8000/
       - ExtractionServices__TimeoutSeconds=120
       - Groq__ApiKey=${GROQ_API_KEY}
     depends_on:
@@ -63,6 +64,22 @@ services:
     ports:
       - "8002:8000"
 
+  copilot:
+    build:
+      context: ./wealthra-copilot
+      dockerfile: Dockerfile
+    image: wealthra-copilot:local
+    container_name: wealthra_copilot_local
+    restart: unless-stopped
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DATABASE_URL=postgresql://wealthra_user:YourStrongDbPassword123!@db:5432/wealthra_db
+    depends_on:
+      - db
+    ports:
+      - "8003:8000"
+
 volumes:
   postgres_data_local:
   aspnet_keys_local:
+

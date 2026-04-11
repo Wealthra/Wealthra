@@ -30,7 +30,10 @@ def health() -> dict[str, str]:
 
 
 @app.post("/extract-expenses-from-image", response_model=ExtractExpensesResponse)
-async def extract_expenses_from_image(file: UploadFile = File(...)) -> ExtractExpensesResponse:
+async def extract_expenses_from_image(
+    file: UploadFile = File(...),
+    categories: str | None = None
+) -> ExtractExpensesResponse:
     suffix = os.path.splitext(file.filename or "")[1] or ".jpg"
 
     try:
@@ -38,7 +41,7 @@ async def extract_expenses_from_image(file: UploadFile = File(...)) -> ExtractEx
             temp_file.write(await file.read())
             temp_path = temp_file.name
 
-        receipt = run_ocr(temp_path)
+        receipt = run_ocr(temp_path, categories)
         parsed_date = None
         if receipt.date:
             try:

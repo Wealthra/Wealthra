@@ -20,7 +20,7 @@ AUDIO_MODEL = "whisper-large-v3-turbo"
 LLM_MODEL = "llama-3.1-8b-instant"
 
 
-def process_audio_file(audio_file_path: str) -> dict:
+def process_audio_file(audio_file_path: str, categories: str | None = None) -> dict:
     """Transcribe an audio file and return structured JSON data."""
     if not os.path.isfile(audio_file_path):
         raise FileNotFoundError(f"File not found: {audio_file_path}")
@@ -53,6 +53,13 @@ def process_audio_file(audio_file_path: str) -> dict:
       ]
     }}
     If there are no expenses, return {{"expenses":[]}}.
+
+    EXISTING CATEGORIES: {categories or 'General, Food, Market, Travel, Health, Entertainment, Others'}
+
+    CRITICAL RULES:
+    - Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.
+    - Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.
+    - Return ONLY the JSON object.
 
     RAW TRANSCRIPT:
     {transcript_text}
@@ -93,14 +100,17 @@ def health() -> dict[str, str]:
 
 
 @app.post("/extract-expenses-from-audio", response_model=ExtractExpensesResponse)
-async def extract_expenses_from_audio(file: UploadFile = File(...)) -> ExtractExpensesResponse:
+async def extract_expenses_from_audio(
+    file: UploadFile = File(...),
+    categories: str | None = None
+) -> ExtractExpensesResponse:
     suffix = os.path.splitext(file.filename or "")[1] or ".wav"
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_file.write(await file.read())
             temp_path = temp_file.name
 
-        extracted_data = process_audio_file(temp_path)
+        extracted_data = process_audio_file(temp_path, categories)
         expenses = extracted_data.get("expenses", [])
         if not isinstance(expenses, list):
             raise ValueError("Invalid payload from model.")

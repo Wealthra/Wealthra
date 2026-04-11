@@ -11,7 +11,7 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL_ID = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 
-def run_ocr(image_path: str) -> Receipt:
+def run_ocr(image_path: str, categories: str | None = None) -> Receipt:
     print(f"Loading receipt image from {image_path}...")
 
     with open(image_path, "rb") as f:
@@ -33,6 +33,10 @@ def run_ocr(image_path: str) -> Receipt:
         "`total_amount` on the receipt, within minor rounding differences.\n"
         "- Each distinct printed line item MUST appear at most once in `items`. "
         "Do not duplicate the same product with the same price.\n"
+        f"- Use these categories for matching if possible: {categories or 'General, Food, Market, Travel, Health, Entertainment, Others'}\n"
+        "- Respond in the language of the receipt, but keep field names as per schema.\n"
+        "- Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.\n"
+        "- Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.\n"
     )
 
     print("Analyzing image and extracting structured data with Groq...\n")

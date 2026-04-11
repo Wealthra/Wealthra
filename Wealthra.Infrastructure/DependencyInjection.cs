@@ -82,6 +82,13 @@ namespace Wealthra.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 60);
             });
 
+            services.AddScoped<ICopilotService, CopilotService>();
+            services.AddHttpClient("CopilotClient", client =>
+            {
+                client.BaseAddress = new Uri(configuration["ExtractionServices:CopilotBaseUrl"]!);
+                client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 120);
+            });
+
             services.AddHttpClient("GroqClient", client =>
             {
                 client.BaseAddress = new Uri("https://api.groq.com/");
