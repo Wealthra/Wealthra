@@ -50,7 +50,20 @@ namespace Wealthra.Infrastructure
                     ValidateAudience = true,
                     ValidAudience = configuration["JwtSettings:Audience"],
                     ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero // Remove default 5 min delay
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (string.IsNullOrEmpty(context.Token))
+                        {
+                            context.Token = context.Request.Cookies["access-token"];
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
 
