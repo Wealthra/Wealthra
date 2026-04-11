@@ -5,7 +5,10 @@ using Wealthra.Application.Features.FinancialSummary.Models;
 
 namespace Wealthra.Application.Features.FinancialSummary.Queries.GetFinancialDashboard;
 
-public record GetFinancialDashboardQuery : IRequest<FinancialDashboardDto>;
+public record GetFinancialDashboardQuery : IRequest<FinancialDashboardDto>
+{
+    public string? TargetCurrency { get; init; }
+}
 
 public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDashboardQuery, FinancialDashboardDto>
 {
@@ -31,7 +34,8 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
 
     public async Task<FinancialDashboardDto> Handle(GetFinancialDashboardQuery request, CancellationToken cancellationToken)
     {
-        var cacheKey = $"dashboard_{_currentUserService.UserId}";
+        var targetCurr = request.TargetCurrency?.ToUpperInvariant();
+        var cacheKey = targetCurr != null ? $"dashboard_{_currentUserService.UserId}_{targetCurr}" : $"dashboard_{_currentUserService.UserId}";
 
         // Try to get from cache first
         // Note: For simplicity here, we might invalidate cache differently if we change preferred currency.
@@ -42,7 +46,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         }
 
         var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
-        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = targetCurr ?? userDetails?.PreferredCurrency ?? "TRY";
 
         // Calculate totals dynamically using the currency exchange service
         var incomeGroups = await _context.Incomes

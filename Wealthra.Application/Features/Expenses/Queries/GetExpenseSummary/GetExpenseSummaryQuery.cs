@@ -9,6 +9,7 @@ namespace Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
 public record GetExpenseSummaryQuery : IRequest<List<ExpenseSummaryDto>>
 {
     public string Period { get; init; } = "Monthly";
+    public string? TargetCurrency { get; init; }
 }
 
 public class GetExpenseSummaryQueryValidator : AbstractValidator<GetExpenseSummaryQuery>
@@ -25,20 +26,39 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IIdentityService _identityService;
+    private readonly ICurrencyExchangeService _currencyService;
 
-    public GetExpenseSummaryQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public GetExpenseSummaryQueryHandler(
+        IApplicationDbContext context, 
+        ICurrentUserService currentUserService,
+        IIdentityService identityService,
+        ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _identityService = identityService;
+        _currencyService = currencyService;
     }
 
     public async Task<List<ExpenseSummaryDto>> Handle(GetExpenseSummaryQuery request, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
+        var userId = _currentUserService.UserId;
+
+        var userDetails = await _identityService.GetUserDetailsAsync(userId!);
+        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
+
         var expenses = await _context.Expenses
+            .AsNoTracking()
             .Include(e => e.Category)
-            .Where(e => e.CreatedBy == _currentUserService.UserId)
+            .Where(e => e.CreatedBy == userId)
             .ToListAsync(cancellationToken);
+
+        foreach (var e in expenses)
+        {
+            e.Amount = await _currencyService.ConvertAsync(e.Amount, e.Currency ?? "TRY", prefCurrency, cancellationToken);
+        }
 
         var groupedExpenses = request.Period switch
         {

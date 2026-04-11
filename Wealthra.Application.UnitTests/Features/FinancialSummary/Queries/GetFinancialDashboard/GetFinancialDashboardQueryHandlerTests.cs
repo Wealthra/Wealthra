@@ -15,6 +15,8 @@ public class GetFinancialDashboardQueryHandlerTests
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
     private readonly Mock<ICacheService> _mockICacheService;
 
+    private readonly Mock<IIdentityService> _mockIdentityService;
+    private readonly Mock<ICurrencyExchangeService> _mockCurrencyService;
     private readonly GetFinancialDashboardQueryHandler _handler;
 
     public GetFinancialDashboardQueryHandlerTests()
@@ -22,6 +24,9 @@ public class GetFinancialDashboardQueryHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
         _mockICacheService = new Mock<ICacheService>();
+
+        _mockIdentityService = new Mock<IIdentityService>();
+        _mockCurrencyService = new Mock<ICurrencyExchangeService>();
 
         _handler = new GetFinancialDashboardQueryHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockICacheService.Object);
     }

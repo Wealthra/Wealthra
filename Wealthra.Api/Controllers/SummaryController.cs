@@ -10,16 +10,16 @@ namespace Wealthra.Api.Controllers;
 public class SummaryController : ApiControllerBase
 {
     [HttpGet("dashboard")]
-    public async Task<ActionResult<FinancialDashboardDto>> GetDashboard()
+    public async Task<ActionResult<FinancialDashboardDto>> GetDashboard([FromQuery] string? currency = null)
     {
-        var dashboard = await Mediator.Send(new GetFinancialDashboardQuery());
+        var dashboard = await Mediator.Send(new GetFinancialDashboardQuery { TargetCurrency = currency });
         return Ok(dashboard);
     }
 
     [HttpGet("dashboard-web")]
-    public async Task<ActionResult<DashboardWebDto>> GetDashboardWeb()
+    public async Task<ActionResult<DashboardWebDto>> GetDashboardWeb([FromQuery] string? currency = null)
     {
-        var dashboard = await Mediator.Send(new GetDashboardWebQuery());
+        var dashboard = await Mediator.Send(new GetDashboardWebQuery { TargetCurrency = currency });
         return Ok(dashboard);
     }
 }

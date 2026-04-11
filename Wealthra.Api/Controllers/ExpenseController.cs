@@ -199,16 +199,16 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("summary")]
-        public async Task<ActionResult<List<ExpenseSummaryDto>>> GetSummary([FromQuery] string period = "Monthly")
+        public async Task<ActionResult<List<ExpenseSummaryDto>>> GetSummary([FromQuery] string period = "Monthly", [FromQuery] string? currency = null)
         {
-            var summary = await Mediator.Send(new GetExpenseSummaryQuery { Period = period });
+            var summary = await Mediator.Send(new GetExpenseSummaryQuery { Period = period, TargetCurrency = currency });
             return Ok(summary);
         }
 
         [HttpGet("generalinfo")]
-        public async Task<ActionResult<ExpenseGeneralInfoDto>> GetGeneralInfo()
+        public async Task<ActionResult<ExpenseGeneralInfoDto>> GetGeneralInfo([FromQuery] string? currency = null)
         {
-            var result = await Mediator.Send(new GetExpenseGeneralInfoQuery());
+            var result = await Mediator.Send(new GetExpenseGeneralInfoQuery { TargetCurrency = currency });
             return Ok(result);
         }
     }

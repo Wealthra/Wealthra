@@ -16,6 +16,7 @@ public class UpdateExpenseCommandHandlerTests
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
     private readonly Mock<ISender> _mockSender;
 
+    private readonly Mock<ICurrencyExchangeService> _mockCurrencyService;
     private readonly UpdateExpenseCommandHandler _handler;
 
     public UpdateExpenseCommandHandlerTests()
@@ -24,7 +25,9 @@ public class UpdateExpenseCommandHandlerTests
         _mockICurrentUserService = new Mock<ICurrentUserService>();
         _mockSender = new Mock<ISender>();
 
-        _handler = new UpdateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object);
+        _mockCurrencyService = new Mock<ICurrencyExchangeService>();
+
+        _handler = new UpdateExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object, _mockCurrencyService.Object);
     }
 
     [Fact]

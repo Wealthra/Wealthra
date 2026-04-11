@@ -56,16 +56,16 @@ public class IncomesController : ApiControllerBase
     }
 
     [HttpGet("summary")]
-    public async Task<ActionResult<List<IncomeSummaryDto>>> GetSummary([FromQuery] string period = "Monthly")
+    public async Task<ActionResult<List<IncomeSummaryDto>>> GetSummary([FromQuery] string period = "Monthly", [FromQuery] string? currency = null)
     {
-        var summary = await Mediator.Send(new GetIncomeSummaryQuery { Period = period });
+        var summary = await Mediator.Send(new GetIncomeSummaryQuery { Period = period, TargetCurrency = currency });
         return Ok(summary);
     }
 
     [HttpGet("generalinfo")]
-    public async Task<ActionResult<IncomeGeneralInfoDto>> GetGeneralInfo()
+    public async Task<ActionResult<IncomeGeneralInfoDto>> GetGeneralInfo([FromQuery] string? currency = null)
     {
-        var result = await Mediator.Send(new GetIncomeGeneralInfoQuery());
+        var result = await Mediator.Send(new GetIncomeGeneralInfoQuery { TargetCurrency = currency });
         return Ok(result);
     }
 }

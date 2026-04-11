@@ -5,7 +5,10 @@ using Wealthra.Application.Features.Goals.Models;
 
 namespace Wealthra.Application.Features.Goals.Queries.GetGoalsTotal;
 
-public record GetGoalsTotalQuery : IRequest<GoalsTotalDto>;
+public record GetGoalsTotalQuery : IRequest<GoalsTotalDto>
+{
+    public string? TargetCurrency { get; init; }
+}
 
 public class GetGoalsTotalQueryHandler : IRequestHandler<GetGoalsTotalQuery, GoalsTotalDto>
 {
@@ -29,7 +32,7 @@ public class GetGoalsTotalQueryHandler : IRequestHandler<GetGoalsTotalQuery, Goa
     public async Task<GoalsTotalDto> Handle(GetGoalsTotalQuery request, CancellationToken cancellationToken)
     {
         var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
-        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
 
         var goals = await _context.Goals
             .Where(g => g.CreatedBy == _currentUserService.UserId)

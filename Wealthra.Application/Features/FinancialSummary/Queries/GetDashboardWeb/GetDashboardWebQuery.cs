@@ -6,7 +6,10 @@ using Wealthra.Application.Features.FinancialSummary.Models;
 
 namespace Wealthra.Application.Features.FinancialSummary.Queries.GetDashboardWeb;
 
-public record GetDashboardWebQuery : IRequest<DashboardWebDto>;
+public record GetDashboardWebQuery : IRequest<DashboardWebDto>
+{
+    public string? TargetCurrency { get; init; }
+}
 
 public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery, DashboardWebDto>
 {
@@ -32,7 +35,8 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
     public async Task<DashboardWebDto> Handle(GetDashboardWebQuery request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.UserId ?? string.Empty;
-        var cacheKey = $"dashboard_web_{userId}";
+        var targetCurr = request.TargetCurrency?.ToUpperInvariant();
+        var cacheKey = targetCurr != null ? $"dashboard_web_{userId}_{targetCurr}" : $"dashboard_web_{userId}";
         var cached = await _cacheService.GetAsync<DashboardWebDto>(cacheKey, cancellationToken);
         if (cached != null)
         {
@@ -40,7 +44,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         }
 
         var userDetails = await _identityService.GetUserDetailsAsync(userId);
-        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = targetCurr ?? userDetails?.PreferredCurrency ?? "TRY";
 
         var now = DateTime.UtcNow;
         var periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);

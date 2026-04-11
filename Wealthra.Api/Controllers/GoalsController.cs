@@ -56,9 +56,9 @@ public class GoalsController : ApiControllerBase
     }
 
     [HttpGet("total")]
-    public async Task<ActionResult<GoalsTotalDto>> GetTotal()
+    public async Task<ActionResult<GoalsTotalDto>> GetTotal([FromQuery] string? currency = null)
     {
-        var result = await Mediator.Send(new GetGoalsTotalQuery());
+        var result = await Mediator.Send(new GetGoalsTotalQuery { TargetCurrency = currency });
         return Ok(result);
     }
 

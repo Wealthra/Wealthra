@@ -9,6 +9,7 @@ namespace Wealthra.Application.Features.Incomes.Queries.GetIncomeSummary;
 public record GetIncomeSummaryQuery : IRequest<List<IncomeSummaryDto>>
 {
     public string Period { get; init; } = "Monthly";
+    public string? TargetCurrency { get; init; }
 }
 
 public class GetIncomeSummaryQueryValidator : AbstractValidator<GetIncomeSummaryQuery>
@@ -25,19 +26,38 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IIdentityService _identityService;
+    private readonly ICurrencyExchangeService _currencyService;
 
-    public GetIncomeSummaryQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public GetIncomeSummaryQueryHandler(
+        IApplicationDbContext context, 
+        ICurrentUserService currentUserService,
+        IIdentityService identityService,
+        ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _identityService = identityService;
+        _currencyService = currencyService;
     }
 
     public async Task<List<IncomeSummaryDto>> Handle(GetIncomeSummaryQuery request, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
+        var userId = _currentUserService.UserId;
+
+        var userDetails = await _identityService.GetUserDetailsAsync(userId!);
+        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
+
         var incomes = await _context.Incomes
-            .Where(i => i.CreatedBy == _currentUserService.UserId)
+            .AsNoTracking()
+            .Where(i => i.CreatedBy == userId)
             .ToListAsync(cancellationToken);
+
+        foreach (var i in incomes)
+        {
+            i.Amount = await _currencyService.ConvertAsync(i.Amount, i.Currency ?? "TRY", prefCurrency, cancellationToken);
+        }
 
         var groupedIncomes = request.Period switch
         {

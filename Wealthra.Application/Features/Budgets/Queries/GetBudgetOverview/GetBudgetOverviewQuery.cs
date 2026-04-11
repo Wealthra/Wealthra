@@ -5,7 +5,10 @@ using Wealthra.Application.Features.Budgets.Models;
 
 namespace Wealthra.Application.Features.Budgets.Queries.GetBudgetOverview;
 
-public record GetBudgetOverviewQuery : IRequest<BudgetOverviewDto>;
+public record GetBudgetOverviewQuery : IRequest<BudgetOverviewDto>
+{
+    public string? TargetCurrency { get; init; }
+}
 
 public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQuery, BudgetOverviewDto>
 {
@@ -29,7 +32,7 @@ public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQu
         var currentMonthEnd = currentMonthStart.AddMonths(1);
 
         var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
-        var prefCurrency = userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
 
         var budgets = await _context.Budgets
             .Where(b => b.CreatedBy == _currentUserService.UserId)

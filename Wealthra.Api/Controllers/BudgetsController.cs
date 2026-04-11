@@ -29,9 +29,9 @@ public class BudgetsController : ApiControllerBase
     }
 
     [HttpGet("overview")]
-    public async Task<ActionResult<BudgetOverviewDto>> GetOverview()
+    public async Task<ActionResult<BudgetOverviewDto>> GetOverview([FromQuery] string? currency = null)
     {
-        var overview = await Mediator.Send(new GetBudgetOverviewQuery());
+        var overview = await Mediator.Send(new GetBudgetOverviewQuery { TargetCurrency = currency });
         return Ok(overview);
     }
 
