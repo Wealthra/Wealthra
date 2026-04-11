@@ -27,7 +27,8 @@ public class GetIncomeByIdQueryHandler : IRequestHandler<GetIncomeByIdQuery, Inc
                 i.Amount,
                 i.Method,
                 i.IsRecurring,
-                i.TransactionDate))
+                i.TransactionDate,
+                i.Currency ?? "TRY"))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (income == null)

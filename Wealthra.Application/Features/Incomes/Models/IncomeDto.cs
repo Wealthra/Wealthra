@@ -6,4 +6,5 @@ public record IncomeDto(
     decimal Amount,
     string Method,
     bool IsRecurring,
-    DateTime TransactionDate);
+    DateTime TransactionDate,
+    string Currency);

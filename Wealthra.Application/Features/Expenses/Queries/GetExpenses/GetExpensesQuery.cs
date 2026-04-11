@@ -58,7 +58,8 @@ public class GetExpensesQueryHandler : IRequestHandler<GetExpensesQuery, Paginat
             e.IsRecurring,
             e.TransactionDate,
             e.CategoryId,
-            e.Category.NameEn));
+            e.Category.NameEn,
+            e.Currency ?? "TRY"));
 
         return await PaginatedList<ExpenseDto>.CreateAsync(
             expensesQuery,

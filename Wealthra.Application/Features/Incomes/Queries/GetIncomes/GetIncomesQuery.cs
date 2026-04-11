@@ -49,7 +49,8 @@ public class GetIncomesQueryHandler : IRequestHandler<GetIncomesQuery, Paginated
             i.Amount,
             i.Method,
             i.IsRecurring,
-            i.TransactionDate));
+            i.TransactionDate,
+            i.Currency ?? "TRY"));
 
         return await PaginatedList<IncomeDto>.CreateAsync(
             incomesQuery,

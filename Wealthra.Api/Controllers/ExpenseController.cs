@@ -151,7 +151,8 @@ namespace Wealthra.Api.Controllers
                     false,
                     when,
                     categoryId.Value,
-                    cat.CategoryName));
+                    cat.CategoryName,
+                    e.Currency ?? "TRY"));
             }
 
             return list;

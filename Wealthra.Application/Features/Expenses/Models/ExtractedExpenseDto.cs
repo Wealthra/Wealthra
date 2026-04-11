@@ -10,6 +10,7 @@ namespace Wealthra.Application.Features.Expenses.Models
         public string? CategorySuggestion { get; set; }
         public decimal? Confidence { get; set; }
         public string Source { get; set; } = string.Empty;
+        public string? Currency { get; set; }
     }
 }
 

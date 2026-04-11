@@ -30,7 +30,8 @@ public class GetExpenseByIdQueryHandler : IRequestHandler<GetExpenseByIdQuery, E
                 e.IsRecurring,
                 e.TransactionDate,
                 e.CategoryId,
-                e.Category.NameEn))
+                e.Category.NameEn,
+                e.Currency ?? "TRY"))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (expense == null)

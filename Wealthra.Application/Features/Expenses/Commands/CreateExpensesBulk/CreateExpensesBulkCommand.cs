@@ -18,7 +18,9 @@ public class CreateExpenseBulkItem
     public bool IsRecurring { get; init; }
     public int CategoryId { get; init; }
     public DateTime TransactionDate { get; init; }
+    public string Currency { get; init; } = "TRY";
 }
+
 
 public record CreateExpensesBulkCommand : IRequest<IReadOnlyList<int>>
 {
@@ -55,15 +57,18 @@ public class CreateExpensesBulkCommandHandler : IRequestHandler<CreateExpensesBu
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISender _sender;
+    private readonly ICurrencyExchangeService _currencyService;
 
     public CreateExpensesBulkCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ISender sender)
+        ISender sender,
+        ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _sender = sender;
+        _currencyService = currencyService;
     }
 
     public async Task<IReadOnlyList<int>> Handle(CreateExpensesBulkCommand request, CancellationToken cancellationToken)
@@ -97,13 +102,22 @@ public class CreateExpensesBulkCommandHandler : IRequestHandler<CreateExpensesBu
                 PaymentMethod = item.PaymentMethod ?? string.Empty,
                 IsRecurring = item.IsRecurring,
                 CategoryId = item.CategoryId,
-                TransactionDate = item.TransactionDate
+                TransactionDate = item.TransactionDate,
+                Currency = item.Currency ?? "TRY"
             };
             entities.Add(entity);
 
             if (budgets.TryGetValue(item.CategoryId, out var budget))
             {
-                budget.AddExpense(item.Amount);
+                decimal amountToAdd = item.Amount;
+                var itemCurr = item.Currency ?? "TRY";
+                var budgetCurr = budget.Currency ?? "TRY";
+                
+                if (!string.Equals(itemCurr, budgetCurr, StringComparison.OrdinalIgnoreCase))
+                {
+                    amountToAdd = await _currencyService.ConvertAsync(item.Amount, itemCurr, budgetCurr, cancellationToken);
+                }
+                budget.AddExpense(amountToAdd);
             }
         }
 
