@@ -121,6 +121,43 @@ def _msg(key: str, lang: str, **kwargs) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Strict language enforcement block (injected into every LLM prompt)
+# ---------------------------------------------------------------------------
+
+_LANG_BLOCK = {
+    "tr": (
+        "DİL KURALLARI (MUTLAK):\n"
+        "- Yanıtının tamamını yalnızca Türkçe yaz.\n"
+        "- Başka dillerden hiçbir kelime, karakter veya harf KULLANMA.\n"
+        "- Çince, Japonca, Korece, Vietnamca, Arapça veya başka alfabe karakterleri YASAKTIR.\n"
+        "- İngilizce kelimeler YASAKTIR (teknik terimler hariç: TL, API gibi).\n"
+        "- Eğer bir kelimeyi Türkçeye çeviremiyorsan, o kelimeyi hiç kullanma.\n"
+    ),
+    "en": (
+        "LANGUAGE RULES (ABSOLUTE):\n"
+        "- Write your ENTIRE response in English only.\n"
+        "- Do NOT include ANY characters from other languages or scripts.\n"
+        "- Chinese, Japanese, Korean, Vietnamese, Arabic, or Cyrillic characters are FORBIDDEN.\n"
+        "- Turkish-specific characters (ç, ş, ğ, ı, ö, ü) are FORBIDDEN in English responses.\n"
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Anti-repetition instruction (injected into narrative/analysis prompts)
+# ---------------------------------------------------------------------------
+
+_NO_REPEAT = (
+    "TEKRAR YASAĞI: Aynı sayıyı veya bilgiyi yanıtın içinde birden fazla kez SÖYLEME. "
+    "Bir veriyi bir kez net olarak belirt, sonra bir daha tekrarlama."
+)
+
+_NO_REPEAT_EN = (
+    "NO REPETITION: Never state the same number or fact more than once in your response. "
+    "Mention each data point exactly once, then move on."
+)
+
+
+# ---------------------------------------------------------------------------
 # Write-priority heuristic: keyword-based pre-LLM gate
 # ---------------------------------------------------------------------------
 
@@ -164,9 +201,15 @@ class Orchestrator:
     """
 
     def __init__(self):
-        self.llm = ChatGroq(
+        # Fast model: intent classification, small talk, JSON extraction
+        self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name="llama-3.3-70b-versatile",
+            model_name=settings.MODEL_FAST,
+        )
+        # Reasoning model: narrative synthesis, complex analysis
+        self.llm_reasoning = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name=settings.MODEL_REASONING,
         )
         self.session_store = SessionStore()
         self.rag_specialist = RAGSpecialist()
@@ -216,6 +259,7 @@ class Orchestrator:
 
     # ===================================================================
     # INTENT CLASSIFICATION (with write-priority gate)
+    # Uses: llm_fast (simple 4-way classification)
     # ===================================================================
 
     async def _classify_intent(self, message: str) -> IntentType:
@@ -234,9 +278,8 @@ class Orchestrator:
             logger.info("Write-priority gate triggered for: %s", message[:80])
             return IntentType.WRITE
 
-        # Phase 2: LLM classification
-        prompt = f"""
-Analyze the user message and classify it into EXACTLY one of these categories:
+        # Phase 2: LLM classification (fast model — simple task)
+        prompt = f"""Analyze the user message and classify it into EXACTLY one of these categories:
 
 - "write": User wants to ADD, RECORD, or LOG a financial transaction.
   The message contains a specific amount of money AND an action to save it.
@@ -263,11 +306,9 @@ Analyze the user message and classify it into EXACTLY one of these categories:
 
 Message: "{message}"
 
-CRITICAL RULES:
-1. Return ONLY the category name (write, read, hybrid, or smalltalk), nothing else.
-2. Avoid any conversational filler or meta-commentary.
-"""
-        response = self.llm.invoke(prompt)
+Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else."""
+
+        response = self.llm_fast.invoke(prompt)
         raw = response.content.strip().lower().strip('"').strip("'")
 
         try:
@@ -632,6 +673,7 @@ CRITICAL RULES:
 
     # ===================================================================
     # HANDLER: Small Talk
+    # Uses: llm_fast (simple persona chat)
     # ===================================================================
 
     async def _handle_smalltalk(
@@ -639,14 +681,9 @@ CRITICAL RULES:
     ) -> ChatResponse:
         """Handle general conversation with the Owlaris persona."""
         lang = session.language
+        lang_block = _LANG_BLOCK.get(lang, _LANG_BLOCK["en"])
 
-        lang_instruction = (
-            "Yanıtını Türkçe olarak ver." if lang == "tr"
-            else "Respond in English."
-        )
-
-        prompt = f"""
-You are Owlaris, the premium financial copilot of the Wealthra app.
+        prompt = f"""You are Owlaris, the premium financial copilot of the Wealthra app.
 The user is expressing something that isn't a direct data query or a transaction.
 They might be frustrated, happy, or just talking.
 
@@ -658,11 +695,10 @@ Task:
 - Always weave in a tip for wealth building, even in general talk.
 - Never say "I can only help with X". You are their financial partner.
 - Keep your response concise (3-4 sentences max).
-- {lang_instruction}
-- CRITICAL: Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.
-- Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.
-"""
-        response = self.llm.invoke(prompt)
+
+{lang_block}"""
+
+        response = self.llm_fast.invoke(prompt)
 
         session.state = SessionState.IDLE
         await self.session_store.save(request.user_id, session)
@@ -675,6 +711,7 @@ Task:
 
     # ===================================================================
     # NARRATIVE SYNTHESIS — The Voice of Owlaris
+    # Uses: llm_reasoning (creative writing, complex synthesis)
     # ===================================================================
 
     async def _synthesize_narrative(
@@ -690,13 +727,10 @@ Task:
         This is what makes Owlaris feel like a real financial advisor
         instead of a database query tool.
         """
-        lang_instruction = (
-            "Yanıtının tamamını Türkçe olarak yaz." if lang == "tr"
-            else "Write your entire response in English."
-        )
+        lang_block = _LANG_BLOCK.get(lang, _LANG_BLOCK["en"])
+        no_repeat = _NO_REPEAT if lang == "tr" else _NO_REPEAT_EN
 
-        prompt = f"""
-You are Owlaris, the premium financial copilot of Wealthra.
+        prompt = f"""You are Owlaris, the premium financial copilot of Wealthra.
 You are responding to a user who asked: "{user_message}"
 
 Here is all the data and analysis you have:
@@ -711,46 +745,40 @@ from your client, explaining their situation with empathy and clarity.
 
 WRITING STYLE RULES:
 1. OPEN WARMLY: Start with a friendly greeting acknowledging what they asked.
-   Example: "Hemen bakalım!" or "Let me walk you through your numbers."
+   Example (TR): "Hemen bakalım!" / Example (EN): "Let me walk you through your numbers."
    NEVER start with a raw list or bullet points.
 
 2. LEAD WITH THE HEADLINE: What's the single most important takeaway?
    Is their spending out of control? Are they saving well? Tell them upfront.
-   Use 🔴 for critical issues, 🟡 for concerns, 🟢 for positive news.
 
 3. TELL A STORY WITH THE DATA: Don't just list category amounts.
    Group and interpret them:
-   - "Your fixed costs (rent, bills) eat up X TL — that's Y% of your income alone."
-   - "On the flexible side, eating out and shopping add up to Z TL."
+   - "Sabit giderleriniz (kira, faturalar) X TL tutuyor — bu tek başına gelirinizin Y%'si."
+   - "Esnek harcamalarınızda ise yemek ve alışveriş Z TL'ye ulaşmış."
    Weave numbers INTO sentences, don't make separate bullet lists.
 
 4. GIVE PERSONAL ADVICE: Every suggestion must reference ACTUAL numbers.
-   BAD: "Reduce your spending."
-   GOOD: "If you cut eating out from 2,840 TL to 1,500 TL next month,
-          you'll save 1,340 TL — that's almost covering your bills."
+   BAD: "Harcamalarınızı azaltın."
+   GOOD: "Yemek harcamanızı 2.840 TL'den 1.500 TL'ye çekerseniz, aylık 1.340 TL tasarruf edersiniz."
 
 5. CLOSE WITH WARMTH: End with encouragement or a question.
-   Example: "Başka bir konuya bakmamı ister misin?" or
-            "Want me to set up a budget target for next month?"
+   Example: "Başka bir konuya bakmamı ister misin?"
 
-6. USE MARKDOWN for emphasis: **bold** for key numbers, emojis sparingly
-   for section breaks (🔴, 💡, 📊), but write in FLOWING PARAGRAPHS
-   — not bullet-point lists.
+6. USE MARKDOWN for emphasis: **bold** for key numbers, emojis sparingly (🔴, 💡, 📊).
+   Write in FLOWING PARAGRAPHS — not bullet-point lists.
 
 7. LENGTH: 3-5 paragraphs. Concise but complete. No filler.
 
 8. MATHEMATICAL ACCURACY: Only state numbers that appear in the data above.
-   Never invent or estimate numbers. If income and expense totals are provided,
-   calculate the ratio correctly.
+   Never invent or estimate numbers.
 
-9. {lang_instruction}
-10. Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma. Özellikle Uzak Doğu karakterleri (muốn, 仍 gibi) kesinlikle bulunmamalıdır.
-11. Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle. "7917 TL harcadınız" gibi bir bilgiyi mesajın içinde birden fazla kez geçirme.
+{no_repeat}
 
-IMPORTANT: Output ONLY the final conversational message. No JSON, no markdown fences,
-no meta-commentary. Just the warm, flowing response that the user will read.
-"""
-        response = self.llm.invoke(prompt)
+{lang_block}
+
+Output ONLY the final conversational message. No JSON, no markdown fences, no meta-commentary."""
+
+        response = self.llm_reasoning.invoke(prompt)
         return response.content.strip()
 
     # ===================================================================

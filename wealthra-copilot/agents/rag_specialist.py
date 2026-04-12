@@ -49,9 +49,15 @@ class RAGSpecialist:
     """The Data Layer — handles all database interactions."""
 
     def __init__(self):
-        self.llm = ChatGroq(
+        # Fast model: JSON extraction for write drafts
+        self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name="llama-3.3-70b-versatile",
+            model_name=settings.MODEL_FAST,
+        )
+        # Reasoning model: SQL agent for data queries
+        self.llm_reasoning = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name=settings.MODEL_REASONING,
         )
         self.db = SQLDatabase.from_uri(settings.DATABASE_URL)
 
@@ -83,13 +89,16 @@ class RAGSpecialist:
         4. Group by "Categories"."NameEn" or "Categories"."NameTr" as appropriate.
         5. ALWAYS use double quotes for all table and column names (e.g., "Expenses", "Amount").
         6. {lang_instruction}
-7. Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.
-8. Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.
+        7. LANGUAGE PURITY: Your response text MUST be entirely in the target language.
+           - If target is Turkish: NO English, Chinese, Vietnamese, Japanese, Arabic, or any other language.
+           - If target is English: NO Turkish, Chinese, Vietnamese, Japanese, Arabic, or any other language.
+           - FORBIDDEN characters: any CJK ideographs, Vietnamese diacritics, Arabic script.
+        8. Do not repeat the same number or fact more than once.
         """
 
         try:
             agent_executor = create_sql_agent(
-                self.llm,
+                self.llm_reasoning,
                 db=self.db,
                 agent_type="openai-tools",
                 verbose=True,
@@ -174,7 +183,7 @@ Return JSON array:
 JSON:
 """
 
-        response = self.llm.invoke(prompt)
+        response = self.llm_fast.invoke(prompt)
         drafts = self._parse_batch_response(response.content)
 
         # Merge with existing session batch (multi-turn info gathering)

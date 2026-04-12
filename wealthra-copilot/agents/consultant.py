@@ -32,7 +32,7 @@ class ConsultantSpecialist:
     def __init__(self):
         self.llm = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name="llama-3.3-70b-versatile",
+            model_name=settings.MODEL_REASONING,
         )
 
     async def analyze(
@@ -51,12 +51,16 @@ class ConsultantSpecialist:
         Output: ConsultantAdvice with insights, warnings, and suggestions
         """
         lang_instruction = (
-            "Tüm metinleri Türkçe olarak yaz." if lang == "tr"
-            else "Write all text in English."
+            "Tüm metinleri Türkçe olarak yaz. "
+            "Başka dillerden HİÇBİR kelime veya karakter kullanma. "
+            "Çince, Japonca, Vietnamca, Arapça karakterler YASAKTIR."
+            if lang == "tr"
+            else "Write all text in English only. "
+            "Do NOT include ANY characters from other languages or scripts. "
+            "Chinese, Japanese, Vietnamese, Arabic characters are FORBIDDEN."
         )
 
-        prompt = f"""
-You are Owlaris, the premium financial advisor of Wealthra.
+        prompt = f"""You are Owlaris, the premium financial advisor of Wealthra.
 
 The user asked: "{message}"
 
@@ -108,8 +112,7 @@ MANDATORY ANALYSIS RULES:
    advice based on the available numbers. Still reference the actual values.
 7. {lang_instruction}
 8. Return ONLY the JSON — no markdown fences, no explanation.
-9. Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.
-10. Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.
+9. NO REPETITION: Never state the same number or fact in multiple items. Each insight, warning, and suggestion must present DIFFERENT information.
 
 JSON:
 """
@@ -152,3 +155,4 @@ JSON:
                 ],
                 overall_score="N/A",
             )
+
