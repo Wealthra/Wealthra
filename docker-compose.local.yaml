@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: YourStrongDbPassword123!
       POSTGRES_DB: wealthra_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data_local:/var/lib/postgresql/data
 
@@ -29,6 +29,7 @@ services:
       - ExtractionServices__OcrBaseUrl=http://ocr:8000/
       - ExtractionServices__SttBaseUrl=http://stt:8000/
       - ExtractionServices__CopilotBaseUrl=http://copilot:8000/
+      - ExtractionServices__ExportBaseUrl=http://export:8000/
       - ExtractionServices__TimeoutSeconds=120
       - Groq__ApiKey=${GROQ_API_KEY}
     depends_on:
@@ -36,6 +37,7 @@ services:
       - ocr
       - stt
       - copilot
+      - export
     ports:
       - "8080:8080"
     volumes:
@@ -79,6 +81,16 @@ services:
       - db
     ports:
       - "8003:8000"
+
+  export:
+    build:
+      context: ./wealthra-export-pdf-excel
+      dockerfile: Dockerfile
+    image: wealthra-export:local
+    container_name: wealthra_export_local
+    restart: unless-stopped
+    ports:
+      - "8004:8000"
 
 volumes:
   postgres_data_local:

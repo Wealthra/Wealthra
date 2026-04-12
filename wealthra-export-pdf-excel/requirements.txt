@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+reportlab
+pandas
+openpyxl
+pydantic
+pydantic-settings
+python-multipart
+python-dotenv
+httpx

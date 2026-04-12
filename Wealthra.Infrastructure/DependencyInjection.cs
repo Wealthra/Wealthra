@@ -88,6 +88,13 @@ namespace Wealthra.Infrastructure
                 client.BaseAddress = new Uri(configuration["ExtractionServices:CopilotBaseUrl"]!);
                 client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 120);
             });
+            
+            services.AddScoped<IExportService, ExportService>();
+            services.AddHttpClient("ExportClient", client =>
+            {
+                client.BaseAddress = new Uri(configuration["ExtractionServices:ExportBaseUrl"] ?? "http://localhost:8000/");
+                client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("ExtractionServices:TimeoutSeconds") ?? 120);
+            });
 
             services.AddHttpClient("GroqClient", client =>
             {

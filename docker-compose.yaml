@@ -37,6 +37,7 @@ services:
       - ExtractionServices__OcrBaseUrl=http://ocr:8000/
       - ExtractionServices__SttBaseUrl=http://stt:8000/
       - ExtractionServices__CopilotBaseUrl=http://copilot:8000/
+      - ExtractionServices__ExportBaseUrl=http://export:8000/
       - ExtractionServices__TimeoutSeconds=120
       - Groq__ApiKey=${GROQ_API_KEY:?Set GROQ_API_KEY in .env (see .env.example)}
     depends_on:
@@ -44,6 +45,7 @@ services:
       - ocr
       - stt
       - copilot
+      - export
     volumes:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
 
@@ -70,6 +72,11 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-wealthra_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-wealthra_db}
     depends_on:
       - db
+
+  export:
+    image: ${WEALTHRA_EXPORT_IMAGE:?Set WEALTHRA_EXPORT_IMAGE in .env (registry image for the Export service)}
+    container_name: wealthra_export
+    restart: unless-stopped
 
 volumes:
   postgres_data:
