@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Wealthra.Infrastructure.Persistence.Migrations
 {
-    public partial class BilingualNotifications : Migration
+    /// <inheritdoc />
+    public partial class UpdateNotificationLanguages : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
@@ -20,16 +22,30 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
                 type: "text",
                 nullable: true);
 
-            migrationBuilder.Sql("""UPDATE \"Notifications\" SET \"MessageEn\" = \"Message\", \"MessageTr\" = \"Message\";""");
+            // Copy data from old Message column
+            migrationBuilder.Sql("UPDATE \"Notifications\" SET \"MessageEn\" = \"Message\", \"MessageTr\" = \"Message\"");
 
             migrationBuilder.DropColumn(
                 name: "Message",
                 table: "Notifications");
 
-            migrationBuilder.Sql("""ALTER TABLE \"Notifications\" ALTER COLUMN \"MessageEn\" SET NOT NULL;""");
-            migrationBuilder.Sql("""ALTER TABLE \"Notifications\" ALTER COLUMN \"MessageTr\" SET NOT NULL;""");
+            // Make columns non-nullable after migration
+            migrationBuilder.AlterColumn<string>(
+                name: "MessageEn",
+                table: "Notifications",
+                type: "text",
+                nullable: false,
+                oldNullable: true);
+
+            migrationBuilder.AlterColumn<string>(
+                name: "MessageTr",
+                table: "Notifications",
+                type: "text",
+                nullable: false,
+                oldNullable: true);
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
@@ -38,9 +54,14 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
                 type: "text",
                 nullable: true);
 
-            migrationBuilder.Sql("""UPDATE \"Notifications\" SET \"Message\" = COALESCE(\"MessageEn\", \"MessageTr\", '');""");
+            migrationBuilder.Sql("UPDATE \"Notifications\" SET \"Message\" = COALESCE(\"MessageEn\", \"MessageTr\", '')");
 
-            migrationBuilder.Sql("""ALTER TABLE \"Notifications\" ALTER COLUMN \"Message\" SET NOT NULL;""");
+            migrationBuilder.AlterColumn<string>(
+                name: "Message",
+                table: "Notifications",
+                type: "text",
+                nullable: false,
+                oldNullable: true);
 
             migrationBuilder.DropColumn(
                 name: "MessageEn",
