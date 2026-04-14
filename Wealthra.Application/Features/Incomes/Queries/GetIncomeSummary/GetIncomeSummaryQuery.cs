@@ -24,6 +24,8 @@ public class GetIncomeSummaryQueryValidator : AbstractValidator<GetIncomeSummary
 
 public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuery, List<IncomeSummaryDto>>
 {
+    private const string DefaultCurrency = "TRY";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IIdentityService _identityService;
@@ -47,7 +49,9 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
         var userId = _currentUserService.UserId;
 
         var userDetails = await _identityService.GetUserDetailsAsync(userId!);
-        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = request.TargetCurrency?.ToUpperInvariant()
+            ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
+            ?? DefaultCurrency;
 
         var incomes = await _context.Incomes
             .AsNoTracking()
@@ -56,7 +60,10 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
 
         foreach (var i in incomes)
         {
-            i.Amount = await _currencyService.ConvertAsync(i.Amount, i.Currency ?? "TRY", prefCurrency, cancellationToken);
+            var sourceCurrency = string.IsNullOrWhiteSpace(i.Currency)
+                ? DefaultCurrency
+                : i.Currency.ToUpperInvariant();
+            i.Amount = await _currencyService.ConvertAsync(i.Amount, sourceCurrency, prefCurrency, cancellationToken);
         }
 
         var groupedIncomes = request.Period switch

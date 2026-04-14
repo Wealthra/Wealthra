@@ -28,7 +28,12 @@ public class GetFinancialDashboardQueryHandlerTests
         _mockIdentityService = new Mock<IIdentityService>();
         _mockCurrencyService = new Mock<ICurrencyExchangeService>();
 
-        _handler = new GetFinancialDashboardQueryHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockICacheService.Object);
+        _handler = new GetFinancialDashboardQueryHandler(
+            _mockContext.Object,
+            _mockICurrentUserService.Object,
+            _mockICacheService.Object,
+            _mockIdentityService.Object,
+            _mockCurrencyService.Object);
     }
 
     [Fact]

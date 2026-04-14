@@ -12,6 +12,8 @@ public record GetFinancialDashboardQuery : IRequest<FinancialDashboardDto>
 
 public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDashboardQuery, FinancialDashboardDto>
 {
+    private const string DefaultCurrency = "TRY";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICacheService _cacheService;
@@ -46,12 +48,14 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         }
 
         var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
-        var prefCurrency = targetCurr ?? userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = targetCurr
+            ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
+            ?? DefaultCurrency;
 
         // Calculate totals dynamically using the currency exchange service
         var incomeGroups = await _context.Incomes
             .Where(i => i.CreatedBy == _currentUserService.UserId)
-            .GroupBy(i => i.Currency ?? "TRY")
+            .GroupBy(i => i.Currency ?? DefaultCurrency)
             .Select(g => new { Currency = g.Key, Total = g.Sum(x => x.Amount) })
             .ToListAsync(cancellationToken);
 
@@ -63,7 +67,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
 
         var expenseGroups = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId)
-            .GroupBy(e => e.Currency ?? "TRY")
+            .GroupBy(e => e.Currency ?? DefaultCurrency)
             .Select(g => new { Currency = g.Key, Total = g.Sum(x => x.Amount) })
             .ToListAsync(cancellationToken);
 
@@ -81,42 +85,65 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             .Where(e => e.CreatedBy == _currentUserService.UserId)
             .OrderByDescending(e => e.TransactionDate)
             .Take(5)
-            .Select(e => new RecentTransactionDto(
+            .Select(e => new
+            {
                 e.Id,
-                "Expense",
-                e.Description,
+                Type = "Expense",
+                Description = e.Description,
                 e.Amount,
-                e.Currency ?? "TRY",
+                Currency = e.Currency ?? DefaultCurrency,
                 e.TransactionDate,
-                e.Category.NameEn))
+                CategoryName = (string?)e.Category.NameEn
+            })
             .ToListAsync(cancellationToken);
 
         var recentIncomes = await _context.Incomes
             .Where(i => i.CreatedBy == _currentUserService.UserId)
             .OrderByDescending(i => i.TransactionDate)
             .Take(5)
-            .Select(i => new RecentTransactionDto(
+            .Select(i => new
+            {
                 i.Id,
-                "Income",
-                i.Name,
+                Type = "Income",
+                Description = i.Name,
                 i.Amount,
-                i.Currency ?? "TRY",
+                Currency = i.Currency ?? DefaultCurrency,
                 i.TransactionDate,
-                null))
+                CategoryName = (string?)null
+            })
             .ToListAsync(cancellationToken);
 
-        var recentTransactions = recentExpenses
+        var recentTransactionsRaw = recentExpenses
             .Concat(recentIncomes)
             .OrderByDescending(t => t.TransactionDate)
             .Take(5)
             .ToList();
+
+        var recentTransactions = new List<RecentTransactionDto>(recentTransactionsRaw.Count);
+        foreach (var transaction in recentTransactionsRaw)
+        {
+            var convertedAmount = await _currencyService.ConvertAsync(
+                transaction.Amount,
+                transaction.Currency,
+                prefCurrency,
+                cancellationToken);
+
+            recentTransactions.Add(new RecentTransactionDto(
+                transaction.Id,
+                transaction.Type,
+                transaction.Description,
+                convertedAmount,
+                prefCurrency,
+                transaction.TransactionDate,
+                transaction.CategoryName));
+        }
 
         // Get top spending categories (last 30 days)
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
 
         var rawExpenseData = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId && e.TransactionDate >= thirtyDaysAgo)
-            .Select(e => new { e.CategoryId, e.Amount, Currency = e.Currency ?? "TRY" })
+            .Select(e => new { e.CategoryId, e.Amount, Currency = e.Currency ?? DefaultCurrency })
             .ToListAsync(cancellationToken);
 
         var convertedExpenses = new List<(int CategoryId, decimal Amount)>();
@@ -147,22 +174,47 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         var budgetAlerts = await _context.Budgets
             .Include(b => b.Category)
             .Where(b => b.CreatedBy == _currentUserService.UserId)
+            .Select(b => new
+            {
+                b.Id,
+                CategoryName = b.Category.NameEn,
+                b.LimitAmount,
+                b.CurrentAmount,
+                Currency = b.Currency ?? DefaultCurrency
+            })
             .ToListAsync(cancellationToken);
 
-        var alerts = budgetAlerts
-            .Where(b => b.LimitAmount > 0 && (b.CurrentAmount / b.LimitAmount) * 100 >= 80)
-            .Select(b =>
+        var alerts = new List<BudgetAlertDto>();
+        foreach (var budget in budgetAlerts.Where(b => b.LimitAmount > 0))
+        {
+            var convertedLimit = await _currencyService.ConvertAsync(
+                budget.LimitAmount,
+                budget.Currency,
+                prefCurrency,
+                cancellationToken);
+            var convertedCurrent = await _currencyService.ConvertAsync(
+                budget.CurrentAmount,
+                budget.Currency,
+                prefCurrency,
+                cancellationToken);
+
+            var percentage = convertedLimit == 0 ? 0 : (convertedCurrent / convertedLimit) * 100;
+            if (percentage < 80)
             {
-                var percentage = (b.CurrentAmount / b.LimitAmount) * 100;
-                return new BudgetAlertDto(
-                    b.Id,
-                    b.Category.NameEn,
-                    b.LimitAmount,
-                    b.CurrentAmount,
-                    b.Currency ?? "TRY",
-                    percentage,
-                    percentage >= 100 ? "Exceeded" : "Warning");
-            })
+                continue;
+            }
+
+            alerts.Add(new BudgetAlertDto(
+                budget.Id,
+                budget.CategoryName,
+                convertedLimit,
+                convertedCurrent,
+                prefCurrency,
+                percentage,
+                percentage >= 100 ? "Exceeded" : "Warning"));
+        }
+
+        alerts = alerts
             .OrderByDescending(a => a.PercentageUsed)
             .ToList();
 

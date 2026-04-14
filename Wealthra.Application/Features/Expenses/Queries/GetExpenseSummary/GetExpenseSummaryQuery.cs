@@ -24,6 +24,8 @@ public class GetExpenseSummaryQueryValidator : AbstractValidator<GetExpenseSumma
 
 public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQuery, List<ExpenseSummaryDto>>
 {
+    private const string DefaultCurrency = "TRY";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IIdentityService _identityService;
@@ -47,7 +49,9 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
         var userId = _currentUserService.UserId;
 
         var userDetails = await _identityService.GetUserDetailsAsync(userId!);
-        var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
+        var prefCurrency = request.TargetCurrency?.ToUpperInvariant()
+            ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
+            ?? DefaultCurrency;
 
         var expenses = await _context.Expenses
             .AsNoTracking()
@@ -57,7 +61,10 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
 
         foreach (var e in expenses)
         {
-            e.Amount = await _currencyService.ConvertAsync(e.Amount, e.Currency ?? "TRY", prefCurrency, cancellationToken);
+            var sourceCurrency = string.IsNullOrWhiteSpace(e.Currency)
+                ? DefaultCurrency
+                : e.Currency.ToUpperInvariant();
+            e.Amount = await _currencyService.ConvertAsync(e.Amount, sourceCurrency, prefCurrency, cancellationToken);
         }
 
         var groupedExpenses = request.Period switch
