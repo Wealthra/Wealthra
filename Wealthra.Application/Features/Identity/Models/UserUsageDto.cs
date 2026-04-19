@@ -9,6 +9,8 @@ namespace Wealthra.Application.Features.Identity.Models
         string FirstName,
         string LastName,
         SubscriptionTier SubscriptionTier,
+        int? SubscriptionPlanId,
+        string? SubscriptionPlanName,
         int OcrRequestsThisMonth,
         int SttRequestsThisMonth,
         DateTime? LastUsageActivityDate

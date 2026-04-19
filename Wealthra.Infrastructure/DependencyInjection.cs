@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -11,6 +12,7 @@ using Wealthra.Infrastructure.Identity.Models;
 using Wealthra.Infrastructure.Identity.Services;
 using Wealthra.Infrastructure.Persistence;
 using Wealthra.Infrastructure.Services;
+using Wealthra.Infrastructure.Settings;
 
 namespace Wealthra.Infrastructure
 {
@@ -52,6 +54,20 @@ namespace Wealthra.Infrastructure
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero // Remove default 5 min delay
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/admin"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
             // 4. Caching
@@ -67,6 +83,8 @@ namespace Wealthra.Infrastructure
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IUsageTrackerService, UsageTrackerService>();
+            services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
+            services.AddScoped<IEmailSender, EmailService>();
 
             // 6. Expense extraction gateways
             services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();

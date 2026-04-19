@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using System.Collections.Generic;
 
+using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
 
 namespace Wealthra.Infrastructure.Identity.Models
@@ -15,6 +16,8 @@ namespace Wealthra.Infrastructure.Identity.Models
         public DateTime? LastLoginDate { get; set; }
 
         public SubscriptionTier SubscriptionTier { get; set; } = SubscriptionTier.Basic;
+        public int? SubscriptionPlanId { get; set; }
+        public SubscriptionPlan? SubscriptionPlan { get; set; }
         public int OcrRequestsThisMonth { get; set; } = 0;
         public int SttRequestsThisMonth { get; set; } = 0;
         public DateTime? LastUsageActivityDate { get; set; }
