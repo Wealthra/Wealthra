@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Api.Hubs;
 using Wealthra.Api.Infrastructure;
+using Wealthra.Api.Realtime;
 using Wealthra.Application;
+using Wealthra.Application.Common.Interfaces;
 using Wealthra.Infrastructure;
 using Wealthra.Infrastructure.Persistence;
 using Microsoft.OpenApi; // Note the change to Models namespace
@@ -16,6 +19,14 @@ builder.Host.UseSerilog((context, configuration) =>
 
 // 2. Add Services to DI Container
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole("Admin"));
+});
+builder.Services.AddScoped<IAdminRealtimeService, SignalRAdminRealtimeService>();
+builder.Services.AddHostedService<AdminSnapshotHostedService>();
 
 builder.Services.AddCors(options =>
 {
@@ -175,6 +186,7 @@ app.MapHealthChecks("/health");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<AdminRealtimeHub>("/hubs/admin");
 
 // 5. Database Migration and Seeding
 using (var scope = app.Services.CreateScope())

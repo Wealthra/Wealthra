@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wealthra.Application.Features.Identity.Commands.Login;
 using Wealthra.Application.Features.Identity.Commands.RefreshToken;
@@ -10,6 +11,9 @@ using Wealthra.Application.Features.Identity.Commands.UpdatePassword;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Identity.Queries.GetMyProfile;
 using Wealthra.Application.Features.Identity.Commands.UpdateUser;
+using Wealthra.Application.Features.Identity.Commands.ForgotPassword;
+using Wealthra.Application.Features.Identity.Commands.ResetPasswordWithCode;
+using Wealthra.Application.Features.Identity.Commands.VerifyResetCode;
 using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
 using Wealthra.Application.Features.Identity.Commands.UpdateUserTier;
 using Wealthra.Application.Features.Identity.Queries.GetUserUsage;
@@ -57,6 +61,30 @@ namespace Wealthra.Api.Controllers
             SetRefreshTokenCookie(response.RefreshToken, response.RefreshTokenExpiration);
 
             return Ok(new { response.Id, response.Email, response.Token });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("forgot-password")]
+        public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
+        {
+            await Mediator.Send(command);
+            return NoContent();
+        }
+
+        [AllowAnonymous]
+        [HttpPost("verify-reset-code")]
+        public async Task<ActionResult<object>> VerifyResetCode([FromBody] VerifyResetCodeCommand command)
+        {
+            var isValid = await Mediator.Send(command);
+            return Ok(new { isValid });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("reset-password")]
+        public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordWithCodeCommand command)
+        {
+            await Mediator.Send(command);
+            return NoContent();
         }
 
         [AllowAnonymous]
@@ -125,8 +153,8 @@ namespace Wealthra.Api.Controllers
             return NoContent();
         }
 
-        // Admin endpoint for now
-        [HttpPut("admin/update-tier")]
+        [Authorize(Policy = "AdminOnly")]
+            [HttpPut("admin/update-tier")]
         public async Task<ActionResult> UpdateTier(UpdateUserTierCommand command)
         {
             await Mediator.Send(command);
@@ -140,6 +168,7 @@ namespace Wealthra.Api.Controllers
             return Ok(response);
         }
 
+        [Authorize(Policy = "AdminOnly")]
         [HttpGet("admin/usages")]
         public async Task<ActionResult<List<UserUsageDto>>> GetUsersUsage([FromQuery] string? email, [FromQuery] string? name)
         {
