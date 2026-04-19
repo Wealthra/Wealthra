@@ -15,6 +15,7 @@ namespace Wealthra.Application.Common.Interfaces
         DbSet<Goal> Goals { get; }
         DbSet<Notification> Notifications { get; }
         DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; }
+        DbSet<FinancialTip> FinancialTips { get; }
         DbSet<SubscriptionPlan> SubscriptionPlans { get; }
     
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);

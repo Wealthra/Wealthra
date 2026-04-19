@@ -3,6 +3,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using Wealthra.Application.Common.Behaviours;
+using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Recommendations.Services;
 
 namespace Wealthra.Application
 {
@@ -22,6 +24,8 @@ namespace Wealthra.Application
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AdminActivityBehaviour<,>));
             });
+
+            services.AddScoped<IHeuristicRecommendationService, HeuristicRecommendationService>();
 
             return services;
         }

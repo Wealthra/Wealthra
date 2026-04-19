@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Recommendations.Models;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
 
@@ -16,11 +17,16 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IHeuristicRecommendationService _heuristicRecommendationService;
 
-        public AnalyzeSpendingAnomaliesCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+        public AnalyzeSpendingAnomaliesCommandHandler(
+            IApplicationDbContext context,
+            ICurrentUserService currentUserService,
+            IHeuristicRecommendationService heuristicRecommendationService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _heuristicRecommendationService = heuristicRecommendationService;
         }
 
         public async Task<List<string>> Handle(AnalyzeSpendingAnomaliesCommand request, CancellationToken cancellationToken)
@@ -42,71 +48,36 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                             n.CreatedOn.Month == targetMonth.Month)
                 .ToListAsync(cancellationToken);
 
-            foreach (var metric in metrics)
+            var signals = _heuristicRecommendationService.Evaluate(metrics);
+            foreach (var signal in signals)
             {
-                // Heuristic 1: High Percentage of Total Income
-                // Flag if any category takes > 30% of income.
-                if (metric.SpendPercentageOfIncome > 30)
+                if (!signal.CategoryId.HasValue)
                 {
-                    var percentage = Math.Round(metric.SpendPercentageOfIncome, 1);
-                    var msgEn = $"Alert: Your spending in '{metric.CategoryName}' makes up %{percentage} of your total income this month.";
-                    var msgTr = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız bu ay toplam gelirinizin %{percentage}'ini oluşturuyor.";
-                    
-                    var alreadySent = existingAlerts.Any(n =>
-                        n.RelatedEntityId == metric.CategoryId &&
-                        (n.MessageTr.Contains("toplam gelirinizin %") || n.MessageEn.Contains("total income this month")));
-                    if (!alreadySent)
-                    {
-                        var notification = new Notification
-                        {
-                            UserId = userId,
-                            MessageEn = msgEn,
-                            MessageTr = msgTr,
-                            Type = NotificationType.Alert,
-                            CreatedOn = DateTime.UtcNow,
-                            IsRead = false,
-                            RelatedEntityId = metric.CategoryId
-                        };
-
-                        _context.Notifications.Add(notification);
-                        existingAlerts.Add(notification); // Add to local list to prevent duplicates in same run
-                        generatedAlerts.Add(msgEn);
-                    }
+                    continue;
                 }
 
-                // Heuristic 2: Month-over-Month Spike
-                // Flag if spend increased by > 50% compared to previous month
-                if (metric.PreviousMonthSpend > 0)
-                {
-                    var increaseRatio = metric.TotalSpend / metric.PreviousMonthSpend;
-                    if (increaseRatio > 1.5m)
-                    {
-                        var percentageIncrease = (increaseRatio - 1) * 100;
-                        var roundedIncrease = Math.Round(percentageIncrease, 1);
-                        var msgEn = $"Alert: Your spending in '{metric.CategoryName}' increased by %{roundedIncrease} compared to last month.";
-                        var msgTr = $"Uyarı: '{metric.CategoryName}' kategorisindeki harcamalarınız geçen aya göre %{roundedIncrease} artış gösterdi.";
-                        
-                        var alreadySent = existingAlerts.Any(n =>
-                            n.RelatedEntityId == metric.CategoryId &&
-                            (n.MessageTr.Contains("geçen aya göre %") || n.MessageEn.Contains("compared to last month")));
-                        if (!alreadySent)
-                        {
-                            var notification = new Notification
-                            {
-                                UserId = userId,
-                                MessageEn = msgEn,
-                                MessageTr = msgTr,
-                                Type = NotificationType.Alert,
-                                CreatedOn = DateTime.UtcNow,
-                                IsRead = false,
-                                RelatedEntityId = metric.CategoryId
-                            };
+                var msgEn = $"Alert: {signal.Evidence}";
+                var msgTr = $"Uyarı: {signal.Evidence}";
+                var alreadySent = existingAlerts.Any(n =>
+                    n.RelatedEntityId == signal.CategoryId &&
+                    n.MessageEn.Contains(signal.ReasonCode));
 
-                            _context.Notifications.Add(notification);
-                            existingAlerts.Add(notification);
-                            generatedAlerts.Add(msgEn);
-                        }
-                    }
+                if (!alreadySent)
+                {
+                    var notification = new Notification
+                    {
+                        UserId = userId,
+                        MessageEn = $"{msgEn} [{signal.ReasonCode}]",
+                        MessageTr = $"{msgTr} [{signal.ReasonCode}]",
+                        Type = NotificationType.Alert,
+                        CreatedOn = DateTime.UtcNow,
+                        IsRead = false,
+                        RelatedEntityId = signal.CategoryId
+                    };
+
+                    _context.Notifications.Add(notification);
+                    existingAlerts.Add(notification);
+                    generatedAlerts.Add(msgEn);
                 }
             }
 

@@ -37,6 +37,7 @@ namespace Wealthra.Infrastructure.Persistence
         public DbSet<Goal> Goals { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; set; }
+        public DbSet<FinancialTip> FinancialTips { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)

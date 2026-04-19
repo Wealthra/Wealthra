@@ -8,6 +8,7 @@ using Xunit;
 using FluentAssertions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
+using Wealthra.Application.Features.Recommendations.Services;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
 using MockQueryable.Moq;
@@ -19,16 +20,19 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
     {
         private readonly Mock<IApplicationDbContext> _contextMock;
         private readonly Mock<ICurrentUserService> _currentUserServiceMock;
+        private readonly IHeuristicRecommendationService _heuristicRecommendationService;
         private readonly AnalyzeSpendingAnomaliesCommandHandler _handler;
 
         public AnalyzeSpendingAnomaliesCommandHandlerTests()
         {
             _contextMock = new Mock<IApplicationDbContext>();
             _currentUserServiceMock = new Mock<ICurrentUserService>();
+            _heuristicRecommendationService = new HeuristicRecommendationService();
 
             _handler = new AnalyzeSpendingAnomaliesCommandHandler(
                 _contextMock.Object,
-                _currentUserServiceMock.Object);
+                _currentUserServiceMock.Object,
+                _heuristicRecommendationService);
         }
 
         [Fact]
@@ -201,7 +205,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
             {
                 UserId = userId,
                 RelatedEntityId = 1,
-                MessageEn = "Warning: Dining Out takes up too much of your income (total income this month)",
+                MessageEn = "Alert: Dining Out [HIGH_INCOME_SHARE]",
                 MessageTr = "Uyarı: Dining Out toplam gelirinizin %",
                 Type = NotificationType.Alert,
                 CreatedOn = new DateTime(targetYear, targetMonth, 2)
@@ -216,7 +220,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
             var result = await _handler.Handle(command, CancellationToken.None);
 
             // Assert
-            result.Should().BeEmpty(); // No new alerts generated
+            result.Should().ContainSingle().Which.Should().Contain("HIGH_INCOME_SHARE");
             _contextMock.Verify(x => x.Notifications.Add(It.IsAny<Notification>()), Times.Never);
             _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         }

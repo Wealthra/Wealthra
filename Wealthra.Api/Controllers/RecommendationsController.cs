@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
+using Wealthra.Application.Features.Recommendations.Models;
+using Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedRecommendations;
 
 namespace Wealthra.Api.Controllers
 {
@@ -27,6 +29,25 @@ namespace Wealthra.Api.Controllers
 
             var alerts = await Mediator.Send(command);
             return Ok(alerts);
+        }
+
+        [HttpGet("personalized")]
+        public async Task<ActionResult<PersonalizedRecommendationResponse>> GetPersonalized([FromQuery] int year, [FromQuery] int month)
+        {
+            if (year == 0 || month == 0)
+            {
+                var now = DateTime.UtcNow;
+                year = now.Year;
+                month = now.Month;
+            }
+
+            var response = await Mediator.Send(new GetPersonalizedRecommendationsQuery
+            {
+                Year = year,
+                Month = month
+            });
+
+            return Ok(response);
         }
     }
 }

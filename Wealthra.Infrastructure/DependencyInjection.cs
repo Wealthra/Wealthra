@@ -71,6 +71,7 @@ namespace Wealthra.Infrastructure
             });
 
             // 4. Caching
+            services.AddMemoryCache();
             services.AddDistributedMemoryCache(); 
             services.AddScoped<ICacheService, CacheService>();
 
@@ -121,6 +122,11 @@ namespace Wealthra.Infrastructure
             {
                 services.AddScoped<IExpenseExtractionEnrichmentService, NullExpenseExtractionEnrichmentService>();
             }
+
+            services.AddScoped<IRecommendationFeatureFlags, RecommendationFeatureFlags>();
+            services.AddScoped<ICollaborativeRecommendationService, CollaborativeRecommendationService>();
+            services.AddScoped<ITextEmbeddingService, DeterministicTextEmbeddingService>();
+            services.AddScoped<ISemanticTipRecommendationService, SemanticTipRecommendationService>();
 
             return services;
         }
