@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Models;
+using Wealthra.Application.Features.Admin.Models;
 using Wealthra.Application.Features.Identity.Models; // Import the new model
 
 namespace Wealthra.Application.Common.Interfaces
@@ -16,7 +17,12 @@ namespace Wealthra.Application.Common.Interfaces
         Task<Result> ChangePreferredCurrencyAsync(string userId, string currency);
         Task<Result> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
         Task<bool> UpdateUserTierAsync(string email, Wealthra.Domain.Enums.SubscriptionTier newTier);
+        Task<bool> AssignUserPlanAsync(string email, int planId);
         Task<UserUsageDto?> GetUserUsageAsync(string userId);
         Task<System.Collections.Generic.List<UserUsageDto>> SearchUserUsagesAsync(string? email, string? name);
+        Task<System.Collections.Generic.List<UserUsageDto>> GetUsersByPlanAsync(int planId);
+        Task<AppUsageSummaryDto> GetAppUsageSummaryAsync();
+        Task<(bool Success, string UserId, string Token)> GeneratePasswordResetTokenAsync(string email);
+        Task<Result> ResetPasswordWithTokenAsync(string userId, string token, string newPassword);
     }
 }

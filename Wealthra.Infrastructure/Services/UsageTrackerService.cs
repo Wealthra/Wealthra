@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
-using Wealthra.Domain.Enums;
 using Wealthra.Infrastructure.Identity.Models;
 
 namespace Wealthra.Infrastructure.Services
@@ -12,14 +12,22 @@ namespace Wealthra.Infrastructure.Services
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IApplicationDbContext _applicationDbContext;
+        private readonly IAdminRealtimeService _adminRealtimeService;
 
         public UsageTrackerService(
             UserManager<ApplicationUser> userManager,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IApplicationDbContext applicationDbContext,
+            IAdminRealtimeService adminRealtimeService)
         {
             _userManager = userManager;
             _currentUserService = currentUserService;
+            _applicationDbContext = applicationDbContext;
+            _adminRealtimeService = adminRealtimeService;
         }
+
+        private sealed record PlanLimits(int OcrLimit, int SttLimit);
 
         private async Task<ApplicationUser?> GetCurrentUserAndResetUsageIfNeededAsync(CancellationToken cancellationToken)
         {
@@ -56,13 +64,8 @@ namespace Wealthra.Infrastructure.Services
             var user = await GetCurrentUserAndResetUsageIfNeededAsync(cancellationToken);
             if (user == null) return false;
 
-            return user.SubscriptionTier switch
-            {
-                SubscriptionTier.Free => false,
-                SubscriptionTier.Basic => user.OcrRequestsThisMonth < 40,
-                SubscriptionTier.Limitless => true,
-                _ => false
-            };
+            var limits = await ResolvePlanLimitsAsync(user, cancellationToken);
+            return user.OcrRequestsThisMonth < limits.OcrLimit;
         }
 
         public async Task<bool> CanUseSttAsync(CancellationToken cancellationToken)
@@ -70,13 +73,8 @@ namespace Wealthra.Infrastructure.Services
             var user = await GetCurrentUserAndResetUsageIfNeededAsync(cancellationToken);
             if (user == null) return false;
 
-            return user.SubscriptionTier switch
-            {
-                SubscriptionTier.Free => false,
-                SubscriptionTier.Basic => user.SttRequestsThisMonth < 30,
-                SubscriptionTier.Limitless => true,
-                _ => false
-            };
+            var limits = await ResolvePlanLimitsAsync(user, cancellationToken);
+            return user.SttRequestsThisMonth < limits.SttLimit;
         }
 
         public async Task IncrementOcrAsync(CancellationToken cancellationToken)
@@ -87,6 +85,11 @@ namespace Wealthra.Infrastructure.Services
                 user.OcrRequestsThisMonth++;
                 user.LastUsageActivityDate = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+                await _adminRealtimeService.PublishActivityAsync(
+                    "usage.ocr.incremented",
+                    $"OCR usage incremented for {user.Email}.",
+                    new { user.Id, user.Email, user.OcrRequestsThisMonth },
+                    cancellationToken);
             }
         }
 
@@ -98,7 +101,35 @@ namespace Wealthra.Infrastructure.Services
                 user.SttRequestsThisMonth++;
                 user.LastUsageActivityDate = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+                await _adminRealtimeService.PublishActivityAsync(
+                    "usage.stt.incremented",
+                    $"STT usage incremented for {user.Email}.",
+                    new { user.Id, user.Email, user.SttRequestsThisMonth },
+                    cancellationToken);
             }
+        }
+
+        private async Task<PlanLimits> ResolvePlanLimitsAsync(ApplicationUser user, CancellationToken cancellationToken)
+        {
+            if (user.SubscriptionPlanId.HasValue)
+            {
+                var plan = await _applicationDbContext.SubscriptionPlans
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == user.SubscriptionPlanId.Value && x.IsActive, cancellationToken);
+
+                if (plan != null)
+                {
+                    return new PlanLimits(plan.MonthlyOcrLimit, plan.MonthlySttLimit);
+                }
+            }
+
+            return user.SubscriptionTier switch
+            {
+                Wealthra.Domain.Enums.SubscriptionTier.Free => new PlanLimits(0, 0),
+                Wealthra.Domain.Enums.SubscriptionTier.Basic => new PlanLimits(40, 30),
+                Wealthra.Domain.Enums.SubscriptionTier.Limitless => new PlanLimits(int.MaxValue, int.MaxValue),
+                _ => new PlanLimits(0, 0)
+            };
         }
     }
 }

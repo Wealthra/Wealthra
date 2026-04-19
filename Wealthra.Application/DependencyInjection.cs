@@ -20,6 +20,7 @@ namespace Wealthra.Application
                 // 2. Validation (Throws exception if invalid)
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(AdminActivityBehaviour<,>));
             });
 
             return services;

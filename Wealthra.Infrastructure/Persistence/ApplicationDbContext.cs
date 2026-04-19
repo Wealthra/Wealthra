@@ -37,6 +37,7 @@ namespace Wealthra.Infrastructure.Persistence
         public DbSet<Goal> Goals { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; set; }
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -46,6 +47,12 @@ namespace Wealthra.Infrastructure.Persistence
             builder.Entity<MonthlyCategoryMetric>()
                 .HasNoKey()
                 .ToView("vw_MonthlyCategoryMetrics");
+
+            builder.Entity<ApplicationUser>()
+                .HasOne(u => u.SubscriptionPlan)
+                .WithMany()
+                .HasForeignKey(u => u.SubscriptionPlanId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = new CancellationToken())
