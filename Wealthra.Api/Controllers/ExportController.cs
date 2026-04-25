@@ -9,17 +9,19 @@ public class ExportController : ApiControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> ExportData(
-        [FromQuery] DateTime? startDate, 
-        [FromQuery] DateTime? endDate, 
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
         [FromQuery] string format = "pdf",
-        [FromQuery] string? currency = null)
+        [FromQuery] string? currency = null,
+        [FromQuery] string lang = "en")
     {
         var query = new ExportFinancialDataQuery
         {
             StartDate = startDate,
             EndDate = endDate,
             Format = format,
-            TargetCurrency = currency
+            TargetCurrency = currency,
+            Language = lang
         };
 
         var fileDto = await Mediator.Send(query);

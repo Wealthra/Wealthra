@@ -14,62 +14,118 @@ public class ReportExportService : IReportExportService
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
+    private string T(string key, string lang)
+    {
+        var dict = new Dictionary<string, (string En, string Tr)>
+        {
+            ["ReportTitle"] = ("Wealthra Financial Report", "Wealthra Finansal Raporu"),
+            ["Period"] = ("Period:", "Dönem:"),
+            ["Currency"] = ("Currency:", "Para Birimi:"),
+            ["DateRange"] = ("Date Range:", "Tarih Aralığı:"),
+            ["Summary"] = ("Summary", "Özet"),
+            ["TotalIncome"] = ("Total Income:", "Toplam Gelir:"),
+            ["TotalExpenses"] = ("Total Expenses:", "Toplam Gider:"),
+            ["NetCashFlow"] = ("Net Cash Flow:", "Net Nakit Akışı:"),
+            ["Incomes"] = ("Incomes", "Gelirler"),
+            ["Expenses"] = ("Expenses", "Giderler"),
+            ["Budgets"] = ("Budgets", "Bütçeler"),
+            ["Goals"] = ("Goals", "Hedefler"),
+            ["Date"] = ("Date", "Tarih"),
+            ["Name"] = ("Name", "İsim"),
+            ["Method"] = ("Method", "Yöntem"),
+            ["Amount"] = ("Amount", "Tutar"),
+            ["Category"] = ("Category", "Kategori"),
+            ["Description"] = ("Description", "Açıklama"),
+            ["Limit"] = ("Limit", "Limit"),
+            ["Spent"] = ("Spent", "Harcanan"),
+            ["UsedPct"] = ("% Used", "% Kullanım"),
+            ["GoalName"] = ("Goal Name", "Hedef Adı"),
+            ["Deadline"] = ("Deadline", "Bitiş Tarihi"),
+            ["Target"] = ("Target", "Hedef"),
+            ["Current"] = ("Current", "Mevcut"),
+            ["Progress"] = ("Progress", "İlerleme"),
+            ["Page"] = ("Page ", "Sayfa "),
+            ["Of"] = (" of ", " / ")
+        };
+
+        var isTr = lang.ToLower() == "tr";
+        if (dict.TryGetValue(key, out var translation))
+        {
+            return isTr ? translation.Tr : translation.En;
+        }
+        return key;
+    }
+
     public byte[] GenerateExcelReport(FinancialReportData data)
     {
         using var workbook = new XLWorkbook();
+        var l = data.Language;
 
         // Summary Sheet
-        var summarySheet = workbook.Worksheets.Add("Summary");
-        summarySheet.Cell(1, 1).Value = "Wealthra Financial Report";
-        summarySheet.Cell(2, 1).Value = $"Period: {data.StartDate:yyyy-MM-dd} to {data.EndDate:yyyy-MM-dd}";
-        summarySheet.Cell(3, 1).Value = $"Currency: {data.Currency}";
+        var summarySheet = workbook.Worksheets.Add(T("Summary", l));
+        summarySheet.Cell(1, 1).Value = T("ReportTitle", l);
+        summarySheet.Cell(2, 1).Value = $"{T("Period", l)} {data.StartDate:yyyy-MM-dd} - {data.EndDate:yyyy-MM-dd}";
+        summarySheet.Cell(3, 1).Value = $"{T("Currency", l)} {data.Currency}";
 
-        summarySheet.Cell(5, 1).Value = "Total Income:";
+        summarySheet.Cell(5, 1).Value = T("TotalIncome", l);
         summarySheet.Cell(5, 2).Value = data.Incomes.Sum(i => i.Amount);
-        summarySheet.Cell(6, 1).Value = "Total Expenses:";
+        summarySheet.Cell(6, 1).Value = T("TotalExpenses", l);
         summarySheet.Cell(6, 2).Value = data.Expenses.Sum(e => e.Amount);
-        summarySheet.Cell(7, 1).Value = "Net Cash Flow:";
+        summarySheet.Cell(7, 1).Value = T("NetCashFlow", l);
         summarySheet.Cell(7, 2).Value = data.Incomes.Sum(i => i.Amount) - data.Expenses.Sum(e => e.Amount);
-
         summarySheet.Columns().AdjustToContents();
 
+        // Incomes Sheet
         if (data.Incomes.Any())
         {
-            var incomeSheet = workbook.Worksheets.Add("Incomes");
-            incomeSheet.Cell(1, 1).InsertTable(data.Incomes.Select(i => new
-            {
-                i.TransactionDate, i.Name, i.Amount, i.Method, i.IsRecurring
-            }));
+            var incomeSheet = workbook.Worksheets.Add(T("Incomes", l));
+            var table = incomeSheet.Cell(1, 1).InsertTable(data.Incomes.Select(i => new { i.TransactionDate, i.Name, i.Amount, i.Method }));
+            var headers = table.HeadersRow();
+            headers.Cell(1).Value = T("Date", l);
+            headers.Cell(2).Value = T("Name", l);
+            headers.Cell(3).Value = T("Amount", l);
+            headers.Cell(4).Value = T("Method", l);
             incomeSheet.Columns().AdjustToContents();
         }
 
+        // Expenses Sheet
         if (data.Expenses.Any())
         {
-            var expenseSheet = workbook.Worksheets.Add("Expenses");
-            expenseSheet.Cell(1, 1).InsertTable(data.Expenses.Select(e => new
-            {
-                e.TransactionDate, e.Description, e.CategoryName, e.Amount, e.PaymentMethod, e.IsRecurring
-            }));
+            var expenseSheet = workbook.Worksheets.Add(T("Expenses", l));
+            var table = expenseSheet.Cell(1, 1).InsertTable(data.Expenses.Select(e => new { e.TransactionDate, e.CategoryName, e.Description, e.Amount, e.PaymentMethod }));
+            var headers = table.HeadersRow();
+            headers.Cell(1).Value = T("Date", l);
+            headers.Cell(2).Value = T("Category", l);
+            headers.Cell(3).Value = T("Description", l);
+            headers.Cell(4).Value = T("Amount", l);
+            headers.Cell(5).Value = T("Method", l);
             expenseSheet.Columns().AdjustToContents();
         }
 
+        // Budgets Sheet
         if (data.Budgets.Any())
         {
-            var budgetSheet = workbook.Worksheets.Add("Budgets");
-            budgetSheet.Cell(1, 1).InsertTable(data.Budgets.Select(b => new
-            {
-                b.CategoryName, b.LimitAmount, b.CurrentAmount, Remaining = b.LimitAmount - b.CurrentAmount, b.PercentageUsed
-            }));
+            var budgetSheet = workbook.Worksheets.Add(T("Budgets", l));
+            var table = budgetSheet.Cell(1, 1).InsertTable(data.Budgets.Select(b => new { b.CategoryName, b.LimitAmount, b.CurrentAmount, b.PercentageUsed }));
+            var headers = table.HeadersRow();
+            headers.Cell(1).Value = T("Category", l);
+            headers.Cell(2).Value = T("Limit", l);
+            headers.Cell(3).Value = T("Spent", l);
+            headers.Cell(4).Value = T("UsedPct", l);
             budgetSheet.Columns().AdjustToContents();
         }
 
+        // Goals Sheet
         if (data.Goals.Any())
         {
-            var goalSheet = workbook.Worksheets.Add("Goals");
-            goalSheet.Cell(1, 1).InsertTable(data.Goals.Select(g => new
-            {
-                g.Name, g.Deadline, g.TargetAmount, g.CurrentAmount, g.ProgressPercentage, g.IsCompleted
-            }));
+            var goalSheet = workbook.Worksheets.Add(T("Goals", l));
+            var table = goalSheet.Cell(1, 1).InsertTable(data.Goals.Select(g => new { g.Name, g.Deadline, g.TargetAmount, g.CurrentAmount, g.ProgressPercentage }));
+            var headers = table.HeadersRow();
+            headers.Cell(1).Value = T("GoalName", l);
+            headers.Cell(2).Value = T("Deadline", l);
+            headers.Cell(3).Value = T("Target", l);
+            headers.Cell(4).Value = T("Current", l);
+            headers.Cell(5).Value = T("Progress", l);
             goalSheet.Columns().AdjustToContents();
         }
 
@@ -80,6 +136,7 @@ public class ReportExportService : IReportExportService
 
     public byte[] GeneratePdfReport(FinancialReportData data)
     {
+        var l = data.Language;
         var document = Document.Create(container =>
         {
             container.Page(page =>
@@ -93,9 +150,9 @@ public class ReportExportService : IReportExportService
                 page.Content().Element(compose => ComposeContent(compose, data));
                 page.Footer().AlignCenter().Text(x =>
                 {
-                    x.Span("Page ");
+                    x.Span(T("Page", l));
                     x.CurrentPageNumber();
-                    x.Span(" of ");
+                    x.Span(T("Of", l));
                     x.TotalPages();
                 });
             });
@@ -106,15 +163,16 @@ public class ReportExportService : IReportExportService
 
     private void ComposeHeader(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.PaddingBottom(20).Row(row =>
         {
             row.RelativeItem().Column(column =>
             {
-                column.Item().Text("Wealthra Financial Report").FontSize(20).SemiBold().FontColor(Colors.Blue.Darken2);
-                column.Item().Text($"Date Range: {data.StartDate:MMM dd, yyyy} - {data.EndDate:MMM dd, yyyy}").FontSize(12);
-                column.Item().Text($"Currency: {data.Currency}").FontSize(12);
+                column.Item().Text(T("ReportTitle", l)).FontSize(20).SemiBold().FontColor(Colors.Blue.Darken2);
+                column.Item().Text($"{T("DateRange", l)} {data.StartDate:yyyy-MM-dd} - {data.EndDate:yyyy-MM-dd}").FontSize(12);
+                column.Item().Text($"{T("Currency", l)} {data.Currency}").FontSize(12);
             });
-            row.ConstantItem(100).AlignRight().Text($"{DateTime.UtcNow:MMM dd, yyyy}").FontSize(10);
+            row.ConstantItem(100).AlignRight().Text($"{DateTime.UtcNow:yyyy-MM-dd}").FontSize(10);
         });
     }
 
@@ -142,9 +200,10 @@ public class ReportExportService : IReportExportService
 
     private void ComposeSummary(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.Column(column =>
         {
-            column.Item().PaddingBottom(5).Text("Summary").FontSize(14).SemiBold();
+            column.Item().PaddingBottom(5).Text(T("Summary", l)).FontSize(14).SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -157,13 +216,13 @@ public class ReportExportService : IReportExportService
                 var totalExpense = data.Expenses.Sum(e => e.Amount);
                 var netCashFlow = totalIncome - totalExpense;
 
-                table.Cell().Text("Total Income:").SemiBold();
+                table.Cell().Text(T("TotalIncome", l)).SemiBold();
                 table.Cell().Text($"{totalIncome:N2} {data.Currency}");
 
-                table.Cell().Text("Total Expenses:").SemiBold();
+                table.Cell().Text(T("TotalExpenses", l)).SemiBold();
                 table.Cell().Text($"{totalExpense:N2} {data.Currency}");
 
-                table.Cell().Text("Net Cash Flow:").SemiBold();
+                table.Cell().Text(T("NetCashFlow", l)).SemiBold();
                 table.Cell().Text($"{netCashFlow:N2} {data.Currency}")
                     .FontColor(netCashFlow < 0 ? Colors.Red.Medium : Colors.Green.Medium);
             });
@@ -172,9 +231,10 @@ public class ReportExportService : IReportExportService
 
     private void ComposeIncomes(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.Column(column =>
         {
-            column.Item().PaddingBottom(5).Text("Incomes").FontSize(14).SemiBold();
+            column.Item().PaddingBottom(5).Text(T("Incomes", l)).FontSize(14).SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -187,10 +247,10 @@ public class ReportExportService : IReportExportService
 
                 table.Header(header =>
                 {
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Date").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Name").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Method").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Amount").SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Date", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Name", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Method", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Amount", l)).SemiBold();
                 });
 
                 foreach (var inc in data.Incomes.OrderByDescending(x => x.TransactionDate))
@@ -206,9 +266,10 @@ public class ReportExportService : IReportExportService
 
     private void ComposeExpenses(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.Column(column =>
         {
-            column.Item().PaddingBottom(5).Text("Expenses").FontSize(14).SemiBold();
+            column.Item().PaddingBottom(5).Text(T("Expenses", l)).FontSize(14).SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -221,10 +282,10 @@ public class ReportExportService : IReportExportService
 
                 table.Header(header =>
                 {
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Date").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Category").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Description").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Amount").SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Date", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Category", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Description", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Amount", l)).SemiBold();
                 });
 
                 foreach (var exp in data.Expenses.OrderByDescending(x => x.TransactionDate))
@@ -240,9 +301,10 @@ public class ReportExportService : IReportExportService
 
     private void ComposeBudgets(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.Column(column =>
         {
-            column.Item().PaddingBottom(5).Text("Budgets").FontSize(14).SemiBold();
+            column.Item().PaddingBottom(5).Text(T("Budgets", l)).FontSize(14).SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -255,10 +317,10 @@ public class ReportExportService : IReportExportService
 
                 table.Header(header =>
                 {
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Category").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Limit").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Spent").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("% Used").SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Category", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Limit", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Spent", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("UsedPct", l)).SemiBold();
                 });
 
                 foreach (var budget in data.Budgets.OrderByDescending(x => x.PercentageUsed))
@@ -275,9 +337,10 @@ public class ReportExportService : IReportExportService
 
     private void ComposeGoals(IContainer container, FinancialReportData data)
     {
+        var l = data.Language;
         container.Column(column =>
         {
-            column.Item().PaddingBottom(5).Text("Goals").FontSize(14).SemiBold();
+            column.Item().PaddingBottom(5).Text(T("Goals", l)).FontSize(14).SemiBold();
             column.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -291,11 +354,11 @@ public class ReportExportService : IReportExportService
 
                 table.Header(header =>
                 {
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Goal Name").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text("Deadline").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Target").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Current").SemiBold();
-                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text("Progress").SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("GoalName", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Text(T("Deadline", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Target", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Current", l)).SemiBold();
+                    header.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).AlignRight().Text(T("Progress", l)).SemiBold();
                 });
 
                 foreach (var goal in data.Goals.OrderBy(x => x.Deadline))

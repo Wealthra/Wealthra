@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Budgets.Models;
@@ -16,8 +15,9 @@ public record ExportFinancialDataQuery : IRequest<ExportFileDto>
 {
     public DateTime? StartDate { get; init; }
     public DateTime? EndDate { get; init; }
-    public string Format { get; init; } = "pdf"; // "pdf" or "excel"
+    public string Format { get; init; } = "pdf";
     public string? TargetCurrency { get; init; }
+    public string Language { get; init; } = "en";
 }
 
 public class ExportFinancialDataQueryValidator : AbstractValidator<ExportFinancialDataQuery>
@@ -57,11 +57,11 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
         var userId = _currentUserService.UserId;
         var userDetails = await _identityService.GetUserDetailsAsync(userId!);
         var targetCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
+        var isTr = request.Language.ToLower() == "tr";
 
         var startDate = request.StartDate ?? new DateTime(DateTime.UtcNow.Year, 1, 1);
         var endDate = request.EndDate ?? DateTime.UtcNow;
 
-        // Fetch Data
         var expenses = await _context.Expenses.Include(e => e.Category)
             .Where(e => e.CreatedBy == userId && e.TransactionDate >= startDate && e.TransactionDate <= endDate)
             .ToListAsync(cancellationToken);
@@ -78,12 +78,11 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
             .Where(g => g.CreatedBy == userId)
             .ToListAsync(cancellationToken);
 
-        // Convert Currencies
         var expenseDtos = new List<ExpenseDto>();
         foreach (var e in expenses)
         {
             var amount = await _currencyService.ConvertAsync(e.Amount, e.Currency ?? "TRY", targetCurrency, cancellationToken);
-            expenseDtos.Add(new ExpenseDto(e.Id, e.Description, amount, e.PaymentMethod, e.IsRecurring, e.TransactionDate, e.CategoryId, e.Category.NameEn, targetCurrency));
+            expenseDtos.Add(new ExpenseDto(e.Id, e.Description, amount, e.PaymentMethod, e.IsRecurring, e.TransactionDate, e.CategoryId, isTr ? e.Category.NameTr : e.Category.NameEn, targetCurrency));
         }
 
         var incomeDtos = new List<IncomeDto>();
@@ -98,7 +97,7 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
         {
             var limit = await _currencyService.ConvertAsync(b.LimitAmount, b.Currency ?? "TRY", targetCurrency, cancellationToken);
             var current = await _currencyService.ConvertAsync(b.CurrentAmount, b.Currency ?? "TRY", targetCurrency, cancellationToken);
-            budgetDtos.Add(new BudgetDto(b.Id, limit, current, limit > 0 ? (current/limit)*100 : 0, "Active", b.CategoryId, b.Category.NameEn));
+            budgetDtos.Add(new BudgetDto(b.Id, limit, current, limit > 0 ? (current/limit)*100 : 0, "Active", b.CategoryId, isTr ? b.Category.NameTr : b.Category.NameEn));
         }
 
         var goalDtos = new List<GoalDto>();
@@ -109,7 +108,7 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
             goalDtos.Add(new GoalDto(g.Id, g.Name, target, current, target > 0 ? (current/target)*100 : 0, g.Deadline, current >= target));
         }
 
-        var reportData = new FinancialReportData(startDate, endDate, targetCurrency, expenseDtos, incomeDtos, budgetDtos, goalDtos);
+        var reportData = new FinancialReportData(startDate, endDate, targetCurrency, request.Language, expenseDtos, incomeDtos, budgetDtos, goalDtos);
 
         if (request.Format.ToLower() == "excel")
         {

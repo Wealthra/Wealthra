@@ -9,6 +9,7 @@ public record FinancialReportData(
     DateTime StartDate,
     DateTime EndDate,
     string Currency,
+    string Language,
     List<ExpenseDto> Expenses,
     List<IncomeDto> Incomes,
     List<BudgetDto> Budgets,
