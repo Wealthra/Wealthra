@@ -181,8 +181,8 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
             }
 
             await db.SaveChangesAsync();
-            await db.Database.ExecuteSqlRawAsync(
-                $"UPDATE \"Budgets\" SET \"LastModifiedBy\" = '{userId}' WHERE \"LastModifiedBy\" = 'System'");
+            string updateBudgetSql = "UPDATE \"Budgets\" SET \"LastModifiedBy\" = {0} WHERE \"LastModifiedBy\" = 'System'";
+            await db.Database.ExecuteSqlRawAsync(updateBudgetSql, userId);
 
             // ─────────────────────────────────────────────────────────────
             // 5. GOALS
@@ -338,9 +338,10 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
 
         /// <summary>Corrects CreatedBy/LastModifiedBy that were overwritten with 'System' by the SaveChanges auditing interceptor.</summary>
         private static Task FixCreatedBy(ApplicationDbContext db, string tableName, string userId)
-            => db.Database.ExecuteSqlRawAsync(
-                $"UPDATE \"{tableName}\" SET \"CreatedBy\" = '{userId}', \"LastModifiedBy\" = '{userId}' WHERE \"CreatedBy\" = 'System'");
-
+        {
+            string sql = $"UPDATE \"{tableName}\" SET \"CreatedBy\" = {{0}}, \"LastModifiedBy\" = {{0}} WHERE \"CreatedBy\" = 'System'";
+            return db.Database.ExecuteSqlRawAsync(sql, userId);
+        }
         private static Income MakeIncome(string name, decimal amount, string method, bool isRecurring, DateTime date)
             => new Income { Name = name, Amount = amount, Method = method, IsRecurring = isRecurring, TransactionDate = date };
 

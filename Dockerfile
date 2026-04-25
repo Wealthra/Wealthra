@@ -18,6 +18,13 @@ RUN dotnet publish "Wealthra.Api.csproj" -c Release -o /app/publish /p:UseAppHos
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    fontconfig \
+    libfreetype6 \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 
 # Expose port 8080 (default for .NET 8+)

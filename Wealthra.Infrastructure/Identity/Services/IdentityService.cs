@@ -244,7 +244,7 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             return new UserUsageDto(
                 user.Id,
-                user.Email,
+                user.Email ?? string.Empty,
                 user.FirstName,
                 user.LastName,
                 user.SubscriptionTier,
@@ -276,7 +276,7 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             return limitRows.Select(user => new UserUsageDto(
                 user.Id,
-                user.Email,
+                user.Email ?? string.Empty,
                 user.FirstName,
                 user.LastName,
                 user.SubscriptionTier,
@@ -299,7 +299,7 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             return users.Select(user => new UserUsageDto(
                 user.Id,
-                user.Email,
+                user.Email ?? string.Empty,
                 user.FirstName,
                 user.LastName,
                 user.SubscriptionTier,

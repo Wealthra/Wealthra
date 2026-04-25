@@ -86,6 +86,7 @@ namespace Wealthra.Infrastructure
             services.AddScoped<IUsageTrackerService, UsageTrackerService>();
             services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
             services.AddScoped<IEmailSender, EmailService>();
+            services.AddScoped<IReportExportService, ReportExportService>();
 
             // 6. Expense extraction gateways
             services.AddScoped<IExpenseExtractionService, ExpenseExtractionService>();
