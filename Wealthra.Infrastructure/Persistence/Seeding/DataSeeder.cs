@@ -40,165 +40,151 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
 
             await EnsureGlobalCategoriesAsync(db);
 
-            var user = await userManager.FindByEmailAsync("user@wealthra.local");
-            if (user == null) return;
-
-            var userId = user.Id;
-
-            if (await db.Expenses.AnyAsync(e => e.CreatedBy == userId)) return;
-
+            var users = await userManager.Users.ToListAsync();
             var now = DateTime.UtcNow;
-
             var cat = await GetCategoryMapAsync(db);
-            var food = cat["Food & Dining"];
-            var transport = cat["Transport"];
-            var housing = cat["Housing"];
-            var health = cat["Health & Fitness"];
-            var entertain = cat["Entertainment"];
-            var shopping = cat["Shopping"];
-            var utilities = cat["Utilities"];
-            var education = cat["Education"];
 
-            // ─────────────────────────────────────────────────────────────
-            // 2. BUDGETS (monthly limits per category)
-            // ─────────────────────────────────────────────────────────────
-            var budgets = new[]
+            foreach (var user in users)
             {
-                new Budget(food.Id,       600m),
-                new Budget(transport.Id,  300m),
-                new Budget(housing.Id,   1200m),
-                new Budget(health.Id,     150m),
-                new Budget(entertain.Id,  200m),
-                new Budget(shopping.Id,   250m),
-                new Budget(utilities.Id,  200m),
-                new Budget(education.Id,  100m),
-            };
+                var userId = user.Id;
 
-            await db.Budgets.AddRangeAsync(budgets);
-            await db.SaveChangesAsync();
-            await FixCreatedBy(db, "Budgets", userId);
+                // Skip if user already has seeded data
+                if (await db.Expenses.AnyAsync(e => e.CreatedBy == userId)) continue;
 
-            // ─────────────────────────────────────────────────────────────
-            // 3. INCOMES — spread across 3 months
-            // ─────────────────────────────────────────────────────────────
-            var incomes = new List<Income>
-            {
-                // Current month
-                MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now,  0,  1)),
-                MakeIncome("Freelance Web Project",  800m, "Bank Transfer", false, MonthDay(now,  0,  8)),
-                MakeIncome("Stock Dividends",        120m, "Bank Transfer", false, MonthDay(now,  0, 10)),
+                var food = cat["Food & Dining"];
+                var transport = cat["Transport"];
+                var housing = cat["Housing"];
+                var health = cat["Health & Fitness"];
+                var entertain = cat["Entertainment"];
+                var shopping = cat["Shopping"];
+                var utilities = cat["Utilities"];
+                var education = cat["Education"];
 
-                // Last month
-                MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now, -1,  1)),
-                MakeIncome("Freelance Logo Design",  350m, "Bank Transfer", false, MonthDay(now, -1, 15)),
-                MakeIncome("Bonus Payment",          500m, "Bank Transfer", false, MonthDay(now, -1, 20)),
+                // ─────────────────────────────────────────────────────────────
+                // 1. BUDGETS
+                // ─────────────────────────────────────────────────────────────
+                var budgets = new[]
+                {
+                    new Budget(food.Id,       600m),
+                    new Budget(transport.Id,  300m),
+                    new Budget(housing.Id,   1200m),
+                    new Budget(health.Id,     150m),
+                    new Budget(entertain.Id,  200m),
+                    new Budget(shopping.Id,   250m),
+                    new Budget(utilities.Id,  200m),
+                    new Budget(education.Id,  100m),
+                };
 
-                // Two months ago
-                MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now, -2,  1)),
-                MakeIncome("Tutoring Sessions",      200m, "Cash",          false, MonthDay(now, -2, 12)),
-            };
+                await db.Budgets.AddRangeAsync(budgets);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Budgets", userId);
 
-            await db.Incomes.AddRangeAsync(incomes);
-            await db.SaveChangesAsync();
-            await FixCreatedBy(db, "Incomes", userId);
+                // ─────────────────────────────────────────────────────────────
+                // 2. INCOMES
+                // ─────────────────────────────────────────────────────────────
+                var incomes = new List<Income>
+                {
+                    // Next month (Early May)
+                    MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now,  1,  1)),
 
-            // ─────────────────────────────────────────────────────────────
-            // 4. EXPENSES — this month + 2 prior months
-            // ─────────────────────────────────────────────────────────────
-            var expenses = new List<Expense>
-            {
-                // ── This Month ──
-                MakeExpense("Supermarket Weekly Shop",   85m, "Debit Card",    food.Id,      false, MonthDay(now,  0,  2)),
-                MakeExpense("Restaurant — Dinner",       62m, "Credit Card",   food.Id,      false, MonthDay(now,  0,  5)),
-                MakeExpense("Supermarket Weekly Shop",   91m, "Debit Card",    food.Id,      false, MonthDay(now,  0,  9)),
-                MakeExpense("Coffee Subscription",       18m, "Debit Card",    food.Id,      true,  MonthDay(now,  0,  1)),
-                MakeExpense("Takeaway Pizza",            24m, "Credit Card",   food.Id,      false, MonthDay(now,  0, 13)),
-                MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now,  0,  1)),
-                MakeExpense("Fuel",                      55m, "Credit Card",   transport.Id, false, MonthDay(now,  0,  7)),
-                MakeExpense("Uber — Airport",            38m, "Credit Card",   transport.Id, false, MonthDay(now,  0, 11)),
-                MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now,  0,  1)),
-                MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now,  0,  1)),
-                MakeExpense("Pharmacy",                  28m, "Cash",          health.Id,    false, MonthDay(now,  0,  6)),
-                MakeExpense("Netflix",                   15m, "Credit Card",   entertain.Id, true,  MonthDay(now,  0,  1)),
-                MakeExpense("Cinema Tickets",            32m, "Credit Card",   entertain.Id, false, MonthDay(now,  0,  9)),
-                MakeExpense("Spotify",                   10m, "Credit Card",   entertain.Id, true,  MonthDay(now,  0,  1)),
-                MakeExpense("Clothing — Jacket",         89m, "Credit Card",   shopping.Id,  false, MonthDay(now,  0,  4)),
-                MakeExpense("Amazon — Books",            34m, "Credit Card",   shopping.Id,  false, MonthDay(now,  0,  8)),
-                MakeExpense("Electricity Bill",          72m, "Bank Transfer", utilities.Id, true,  MonthDay(now,  0,  3)),
-                MakeExpense("Internet Bill",             45m, "Bank Transfer", utilities.Id, true,  MonthDay(now,  0,  3)),
-                MakeExpense("Udemy Course",              29m, "Credit Card",   education.Id, false, MonthDay(now,  0, 10)),
+                    // Current month (April)
+                    MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now,  0,  1)),
+                    MakeIncome("Freelance Web Project",  800m, "Bank Transfer", false, MonthDay(now,  0,  8)),
+                    MakeIncome("Stock Dividends",        120m, "Bank Transfer", false, MonthDay(now,  0, 10)),
 
-                // ── Last Month ──
-                MakeExpense("Supermarket Weekly Shop",   78m, "Debit Card",    food.Id,      false, MonthDay(now, -1,  3)),
-                MakeExpense("Restaurant — Lunch",        45m, "Credit Card",   food.Id,      false, MonthDay(now, -1, 10)),
-                MakeExpense("Supermarket Weekly Shop",   83m, "Debit Card",    food.Id,      false, MonthDay(now, -1, 17)),
-                MakeExpense("Supermarket Weekly Shop",   72m, "Debit Card",    food.Id,      false, MonthDay(now, -1, 24)),
-                MakeExpense("Coffee Subscription",       18m, "Debit Card",    food.Id,      true,  MonthDay(now, -1,  1)),
-                MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now, -1,  1)),
-                MakeExpense("Fuel",                      48m, "Credit Card",   transport.Id, false, MonthDay(now, -1, 15)),
-                MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now, -1,  1)),
-                MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now, -1,  1)),
-                MakeExpense("Doctor Visit",              60m, "Cash",          health.Id,    false, MonthDay(now, -1,  8)),
-                MakeExpense("Netflix",                   15m, "Credit Card",   entertain.Id, true,  MonthDay(now, -1,  1)),
-                MakeExpense("Spotify",                   10m, "Credit Card",   entertain.Id, true,  MonthDay(now, -1,  1)),
-                MakeExpense("Concert Tickets",           75m, "Credit Card",   entertain.Id, false, MonthDay(now, -1, 20)),
-                MakeExpense("Electricity Bill",          68m, "Bank Transfer", utilities.Id, true,  MonthDay(now, -1,  3)),
-                MakeExpense("Internet Bill",             45m, "Bank Transfer", utilities.Id, true,  MonthDay(now, -1,  3)),
-                MakeExpense("Online Course Renewal",     49m, "Credit Card",   education.Id, false, MonthDay(now, -1,  5)),
-                MakeExpense("Shoe Purchase",            110m, "Credit Card",   shopping.Id,  false, MonthDay(now, -1, 12)),
+                    // Last month
+                    MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now, -1,  1)),
+                    MakeIncome("Freelance Logo Design",  350m, "Bank Transfer", false, MonthDay(now, -1, 15)),
+                    MakeIncome("Bonus Payment",          500m, "Bank Transfer", false, MonthDay(now, -1, 20)),
 
-                // ── Two Months Ago ──
-                MakeExpense("Supermarket Weekly Shop",   80m, "Debit Card",    food.Id,      false, MonthDay(now, -2,  4)),
-                MakeExpense("Restaurant — Dinner",       70m, "Credit Card",   food.Id,      false, MonthDay(now, -2, 11)),
-                MakeExpense("Supermarket Weekly Shop",   76m, "Debit Card",    food.Id,      false, MonthDay(now, -2, 18)),
-                MakeExpense("Coffee Subscription",       18m, "Debit Card",    food.Id,      true,  MonthDay(now, -2,  1)),
-                MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now, -2,  1)),
-                MakeExpense("Taxi",                      22m, "Cash",          transport.Id, false, MonthDay(now, -2,  7)),
-                MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now, -2,  1)),
-                MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now, -2,  1)),
-                MakeExpense("Netflix",                   15m, "Credit Card",   entertain.Id, true,  MonthDay(now, -2,  1)),
-                MakeExpense("Spotify",                   10m, "Credit Card",   entertain.Id, true,  MonthDay(now, -2,  1)),
-                MakeExpense("Gaming Console Game",       59m, "Credit Card",   entertain.Id, false, MonthDay(now, -2, 15)),
-                MakeExpense("Electricity Bill",          74m, "Bank Transfer", utilities.Id, true,  MonthDay(now, -2,  3)),
-                MakeExpense("Internet Bill",             45m, "Bank Transfer", utilities.Id, true,  MonthDay(now, -2,  3)),
-                MakeExpense("Winter Clothing",          145m, "Credit Card",   shopping.Id,  false, MonthDay(now, -2, 20)),
-            };
+                    // Two months ago
+                    MakeIncome("Monthly Salary",        4500m, "Bank Transfer", true,  MonthDay(now, -2,  1)),
+                    MakeIncome("Tutoring Sessions",      200m, "Cash",          false, MonthDay(now, -2, 12)),
+                };
 
-            await db.Expenses.AddRangeAsync(expenses);
-            await db.SaveChangesAsync();
-            await FixCreatedBy(db, "Expenses", userId);
+                await db.Incomes.AddRangeAsync(incomes);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Incomes", userId);
 
-            // Update budgets' CurrentAmount with this month's actual expense totals
-            var thisMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            foreach (var budget in budgets)
-            {
-                var spent = expenses
-                    .Where(e => e.CategoryId == budget.CategoryId && e.TransactionDate >= thisMonthStart)
-                    .Sum(e => e.Amount);
+                // ─────────────────────────────────────────────────────────────
+                // 3. EXPENSES
+                // ─────────────────────────────────────────────────────────────
+                var expenses = new List<Expense>
+                {
+                    // ── Early May (up to May 5) ──
+                    MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now,  1,  1)),
+                    MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now,  1,  1)),
+                    MakeExpense("Coffee Subscription",       18m, "Debit Card",    food.Id,      true,  MonthDay(now,  1,  1)),
+                    MakeExpense("Supermarket Weekly Shop",   88m, "Debit Card",    food.Id,      false, MonthDay(now,  1,  3)),
+                    MakeExpense("Dinner with Friends",       65m, "Credit Card",   food.Id,      false, MonthDay(now,  1,  4)),
+                    MakeExpense("Cinema Night",              30m, "Credit Card",   entertain.Id, false, MonthDay(now,  1,  5)),
 
-                if (spent > 0)
-                    budget.AddExpense(spent);
+                    // ── This Month (April) ──
+                    MakeExpense("Supermarket Weekly Shop",   85m, "Debit Card",    food.Id,      false, MonthDay(now,  0,  2)),
+                    MakeExpense("Restaurant — Dinner",       62m, "Credit Card",   food.Id,      false, MonthDay(now,  0,  5)),
+                    MakeExpense("Coffee Subscription",       18m, "Debit Card",    food.Id,      true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Fuel",                      55m, "Credit Card",   transport.Id, false, MonthDay(now,  0,  7)),
+                    MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Netflix",                   15m, "Credit Card",   entertain.Id, true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Spotify",                   10m, "Credit Card",   entertain.Id, true,  MonthDay(now,  0,  1)),
+                    MakeExpense("Clothing — Jacket",         89m, "Credit Card",   shopping.Id,  false, MonthDay(now,  0,  4)),
+                    MakeExpense("Electricity Bill",          72m, "Bank Transfer", utilities.Id, true,  MonthDay(now,  0,  3)),
+                    MakeExpense("Internet Bill",             45m, "Bank Transfer", utilities.Id, true,  MonthDay(now,  0,  3)),
+
+                    // ── Last Month ──
+                    MakeExpense("Supermarket Weekly Shop",   78m, "Debit Card",    food.Id,      false, MonthDay(now, -1,  3)),
+                    MakeExpense("Monthly Transit Pass",      95m, "Debit Card",    transport.Id, true,  MonthDay(now, -1,  1)),
+                    MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now, -1,  1)),
+                    MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now, -1,  1)),
+                    MakeExpense("Doctor Visit",              60m, "Cash",          health.Id,    false, MonthDay(now, -1,  8)),
+                    MakeExpense("Netflix",                   15m, "Credit Card",   entertain.Id, true,  MonthDay(now, -1,  1)),
+                    MakeExpense("Spotify",                   10m, "Credit Card",   entertain.Id, true,  MonthDay(now, -1,  1)),
+                    MakeExpense("Electricity Bill",          68m, "Bank Transfer", utilities.Id, true,  MonthDay(now, -1,  3)),
+
+                    // ── Two Months Ago ──
+                    MakeExpense("Supermarket Weekly Shop",   80m, "Debit Card",    food.Id,      false, MonthDay(now, -2,  4)),
+                    MakeExpense("Monthly Rent",            1100m, "Bank Transfer", housing.Id,   true,  MonthDay(now, -2,  1)),
+                    MakeExpense("Gym Membership",            45m, "Debit Card",    health.Id,    true,  MonthDay(now, -2,  1)),
+                };
+
+                await db.Expenses.AddRangeAsync(expenses);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Expenses", userId);
+
+                // Update budgets' CurrentAmount with this month's actual expense totals
+                var thisMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                foreach (var budget in budgets)
+                {
+                    var spent = expenses
+                        .Where(e => e.CategoryId == budget.CategoryId && e.TransactionDate >= thisMonthStart)
+                        .Sum(e => e.Amount);
+
+                    if (spent > 0)
+                        budget.AddExpense(spent);
+                }
+
+                await db.SaveChangesAsync();
+                string updateBudgetSql = "UPDATE \"Budgets\" SET \"LastModifiedBy\" = {0} WHERE \"LastModifiedBy\" = 'System'";
+                await db.Database.ExecuteSqlRawAsync(updateBudgetSql, userId);
+
+                // ─────────────────────────────────────────────────────────────
+                // 4. GOALS
+                // ─────────────────────────────────────────────────────────────
+                var goals = new[]
+                {
+                    new Goal { Name = "Emergency Fund",         TargetAmount = 10000m, CurrentAmount = 3200m, Deadline = now.AddMonths(8) },
+                    new Goal { Name = "New Laptop",             TargetAmount =  1500m, CurrentAmount =  900m, Deadline = now.AddMonths(3) },
+                    new Goal { Name = "Summer Vacation — Italy",TargetAmount =  3000m, CurrentAmount =  750m, Deadline = now.AddMonths(6) },
+                    new Goal { Name = "Retirement Savings",     TargetAmount = 50000m, CurrentAmount = 8500m, Deadline = now.AddYears(10) },
+                    new Goal { Name = "Home Down Payment",      TargetAmount = 25000m, CurrentAmount = 4200m, Deadline = now.AddYears(3)  },
+                };
+
+                await db.Goals.AddRangeAsync(goals);
+                await db.SaveChangesAsync();
+                await FixCreatedBy(db, "Goals", userId);
             }
-
-            await db.SaveChangesAsync();
-            string updateBudgetSql = "UPDATE \"Budgets\" SET \"LastModifiedBy\" = {0} WHERE \"LastModifiedBy\" = 'System'";
-            await db.Database.ExecuteSqlRawAsync(updateBudgetSql, userId);
-
-            // ─────────────────────────────────────────────────────────────
-            // 5. GOALS
-            // ─────────────────────────────────────────────────────────────
-            var goals = new[]
-            {
-                new Goal { Name = "Emergency Fund",         TargetAmount = 10000m, CurrentAmount = 3200m, Deadline = now.AddMonths(8) },
-                new Goal { Name = "New Laptop",             TargetAmount =  1500m, CurrentAmount =  900m, Deadline = now.AddMonths(3) },
-                new Goal { Name = "Summer Vacation — Italy",TargetAmount =  3000m, CurrentAmount =  750m, Deadline = now.AddMonths(6) },
-                new Goal { Name = "Retirement Savings",     TargetAmount = 50000m, CurrentAmount = 8500m, Deadline = now.AddYears(10) },
-                new Goal { Name = "Home Down Payment",      TargetAmount = 25000m, CurrentAmount = 4200m, Deadline = now.AddYears(3)  },
-            };
-
-            await db.Goals.AddRangeAsync(goals);
-            await db.SaveChangesAsync();
-            await FixCreatedBy(db, "Goals", userId);
         }
 
         /// <summary>

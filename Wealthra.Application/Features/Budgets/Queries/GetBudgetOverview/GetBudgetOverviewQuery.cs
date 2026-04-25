@@ -31,7 +31,7 @@ public class GetBudgetOverviewQueryHandler : IRequestHandler<GetBudgetOverviewQu
         var currentMonthStart = new DateTime(now.Year, now.Month, 1);
         var currentMonthEnd = currentMonthStart.AddMonths(1);
 
-        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
+        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId!);
         var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
 
         var budgets = await _context.Budgets

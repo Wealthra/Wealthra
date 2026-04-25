@@ -9,7 +9,7 @@ namespace Wealthra.Application.Features.Goals.Commands.UpdateGoal;
 public record UpdateGoalCommand : IRequest<Unit>
 {
     public int Id { get; init; }
-    public string Name { get; init; }
+    public string Name { get; init; } = string.Empty;
     public decimal TargetAmount { get; init; }
     public decimal CurrentAmount { get; init; }
     public DateTime Deadline { get; init; }

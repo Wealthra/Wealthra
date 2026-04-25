@@ -7,7 +7,7 @@ namespace Wealthra.Application.Features.Goals.Commands.CreateGoal;
 
 public record CreateGoalCommand : IRequest<int>
 {
-    public string Name { get; init; }
+    public string Name { get; init; } = string.Empty;
     public decimal TargetAmount { get; init; }
     public decimal CurrentAmount { get; init; }
     public DateTime Deadline { get; init; }

@@ -35,7 +35,7 @@ namespace Wealthra.Infrastructure.Identity.Services
             _adminRealtimeService = adminRealtimeService;
         }
 
-        public async Task<string> GetUserNameAsync(string userId)
+        public async Task<string?> GetUserNameAsync(string userId)
         {
             var user = await _userManager.FindByIdAsync(userId);
             return user?.UserName;
@@ -63,7 +63,7 @@ namespace Wealthra.Infrastructure.Identity.Services
             return (result.ToApplicationResult(), user.Id);
         }
 
-        public async Task<(Result Result, AuthResponse Response)> LoginAsync(string email, string password)
+        public async Task<(Result Result, AuthResponse? Response)> LoginAsync(string email, string password)
         {
             var user = await _userManager.FindByEmailAsync(email);
             if (user == null)
@@ -76,7 +76,7 @@ namespace Wealthra.Infrastructure.Identity.Services
             return await GenerateAuthResponseAsync(user);
         }
 
-        public async Task<(Result Result, AuthResponse Response)> RefreshTokenAsync(string token, string refreshToken)
+        public async Task<(Result Result, AuthResponse? Response)> RefreshTokenAsync(string token, string refreshToken)
         {
             var principal = _tokenGenerator.GetPrincipalFromExpiredToken(token);
             if (principal == null)
@@ -123,7 +123,7 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             return (Result.Success(), new AuthResponse(
                 user.Id,
-                user.Email,
+                user.Email ?? string.Empty,
                 accessToken,
                 refreshToken.Token,
                 refreshToken.Expires));
@@ -262,11 +262,11 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             if (!string.IsNullOrWhiteSpace(email))
             {
-                query = query.Where(u => u.Email.Contains(email));
+                query = query.Where(u => u.Email != null && u.Email.Contains(email));
             }
             if (!string.IsNullOrWhiteSpace(name))
             {
-                query = query.Where(u => u.FirstName.Contains(name) || u.LastName.Contains(name));
+                query = query.Where(u => (u.FirstName != null && u.FirstName.Contains(name)) || (u.LastName != null && u.LastName.Contains(name)));
             }
 
             var limitRows = await query
@@ -323,7 +323,7 @@ namespace Wealthra.Infrastructure.Identity.Services
                 .ToListAsync();
 
             var grouped = users
-                .GroupBy(u => new { u.SubscriptionPlanId, PlanName = u.SubscriptionPlan != null ? u.SubscriptionPlan.Name : "Legacy/Unassigned" })
+                .GroupBy(u => new { u.SubscriptionPlanId, PlanName = u.SubscriptionPlan?.Name ?? "Legacy/Unassigned" })
                 .Select(g => new PlanUsageBreakdownDto(
                     g.Key.SubscriptionPlanId,
                     g.Key.PlanName,

@@ -13,7 +13,7 @@ namespace Wealthra.Domain.Entities
 
         // Foreign Keys
         public int CategoryId { get; private set; }
-        public virtual Category Category { get; private set; }
+        public virtual Category Category { get; private set; } = null!;
 
         public Budget(int categoryId, decimal limitAmount, string currency = "TRY")
         {

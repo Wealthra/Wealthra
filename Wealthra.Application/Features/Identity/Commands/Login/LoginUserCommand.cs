@@ -29,13 +29,13 @@ namespace Wealthra.Application.Features.Identity.Commands.Login
         {
             var (result, response) = await _identityService.LoginAsync(request.Email, request.Password);
 
-            if (!result.Succeeded)
+            if (!result.Succeeded || response == null)
             {
                 // Throw Unauthorized to trigger 401
                 throw new UnauthorizedAccessException("Invalid credentials");
             }
 
-            return response;
+            return response!;
         }
     }
 }

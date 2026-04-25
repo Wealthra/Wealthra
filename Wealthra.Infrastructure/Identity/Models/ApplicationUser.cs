@@ -8,8 +8,8 @@ namespace Wealthra.Infrastructure.Identity.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
         public string? AvatarUrl { get; set; }
         public string PreferredCurrency { get; set; } = "TRY";
         public DateTime CreatedAt { get; set; }

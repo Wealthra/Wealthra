@@ -10,9 +10,9 @@ namespace Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
 public record UpdateExpenseCommand : IRequest<Unit>
 {
     public int Id { get; init; }
-    public string Description { get; init; }
+    public string Description { get; init; } = string.Empty;
     public decimal Amount { get; init; }
-    public string PaymentMethod { get; init; }
+    public string PaymentMethod { get; init; } = string.Empty;
     public bool IsRecurring { get; init; }
     public int CategoryId { get; init; }
     public DateTime TransactionDate { get; init; }

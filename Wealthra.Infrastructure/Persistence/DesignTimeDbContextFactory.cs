@@ -23,7 +23,7 @@ namespace Wealthra.Infrastructure.Persistence
             builder.UseNpgsql(connectionString);
 
             // Create a dummy instance for design-time only
-            return new ApplicationDbContext(builder.Options, new DateTimeService(), null, null);
+            return new ApplicationDbContext(builder.Options, new DateTimeService(), null!, null!);
         }
     }
 }

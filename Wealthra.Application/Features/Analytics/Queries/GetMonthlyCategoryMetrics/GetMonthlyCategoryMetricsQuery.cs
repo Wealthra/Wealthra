@@ -13,7 +13,7 @@ namespace Wealthra.Application.Features.Analytics.Queries.GetMonthlyCategoryMetr
     public class MonthlyCategoryMetricDto
     {
         public int CategoryId { get; set; }
-        public string CategoryName { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
         public decimal TotalSpend { get; set; }
         public decimal TotalIncome { get; set; }
         public decimal SpendPercentageOfIncome { get; set; }

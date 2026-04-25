@@ -31,7 +31,7 @@ public class GetGoalsTotalQueryHandler : IRequestHandler<GetGoalsTotalQuery, Goa
 
     public async Task<GoalsTotalDto> Handle(GetGoalsTotalQuery request, CancellationToken cancellationToken)
     {
-        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
+        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId!);
         var prefCurrency = request.TargetCurrency ?? userDetails?.PreferredCurrency ?? "TRY";
 
         var goals = await _context.Goals

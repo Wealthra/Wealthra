@@ -15,9 +15,9 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
     // 1. The Command (Input)
     public record CreateExpenseCommand : IRequest<int>
     {
-        public string Description { get; init; }
+        public string Description { get; init; } = string.Empty;
         public decimal Amount { get; init; }
-        public string PaymentMethod { get; init; }
+        public string PaymentMethod { get; init; } = string.Empty;
         public bool IsRecurring { get; init; }
         public int CategoryId { get; init; }
         public DateTime TransactionDate { get; init; }

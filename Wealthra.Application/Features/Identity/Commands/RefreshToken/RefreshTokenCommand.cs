@@ -33,7 +33,7 @@ namespace Wealthra.Application.Features.Identity.Commands.RefreshToken
         {
             var (result, response) = await _identityService.RefreshTokenAsync(request.Token, request.RefreshToken);
 
-            if (!result.Succeeded)
+            if (!result.Succeeded || response == null)
             {
                 // If refresh fails, user must log in again. Return 401/400.
                 throw new ValidationException(
@@ -41,7 +41,7 @@ namespace Wealthra.Application.Features.Identity.Commands.RefreshToken
                                  .ToDictionary(g => g.Key, g => g.ToArray()));
             }
 
-            return response;
+            return response!;
         }
     }
 }

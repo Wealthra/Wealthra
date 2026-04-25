@@ -47,7 +47,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             return cachedDashboard;
         }
 
-        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId);
+        var userDetails = await _identityService.GetUserDetailsAsync(_currentUserService.UserId!);
         var prefCurrency = targetCurr
             ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
             ?? DefaultCurrency;

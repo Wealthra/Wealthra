@@ -77,7 +77,7 @@ namespace Wealthra.Application.UnitTests.Features.Identity.Commands.DeleteAccoun
         public async Task Handle_UnauthenticatedUser_ShouldThrowUnauthorizedAccessException()
         {
             // Arrange
-            _currentUserServiceMock.Setup(x => x.UserId).Returns((string)null);
+            _currentUserServiceMock.Setup(x => x.UserId).Returns((string?)null);
 
             // Act
             Func<Task> act = async () => await _handler.Handle(new DeleteAccountCommand(), CancellationToken.None);

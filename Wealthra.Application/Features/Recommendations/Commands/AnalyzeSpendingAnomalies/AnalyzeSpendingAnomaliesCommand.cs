@@ -31,7 +31,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
 
         public async Task<List<string>> Handle(AnalyzeSpendingAnomaliesCommand request, CancellationToken cancellationToken)
         {
-            var userId = _currentUserService.UserId;
+            var userId = _currentUserService.UserId!;
             var targetMonth = new DateTime(request.Year, request.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var generatedAlerts = new List<string>();
 

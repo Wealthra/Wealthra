@@ -5,7 +5,7 @@ namespace Wealthra.Domain.Entities
 {
     public class Goal : AuditableEntity
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public decimal TargetAmount { get; set; }
         public decimal CurrentAmount { get; set; } 
         public string Currency { get; set; } = "TRY";

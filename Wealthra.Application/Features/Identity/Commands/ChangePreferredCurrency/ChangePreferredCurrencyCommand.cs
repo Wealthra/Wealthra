@@ -30,7 +30,7 @@ namespace Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrenc
 
         public async Task<Unit> Handle(ChangePreferredCurrencyCommand request, CancellationToken cancellationToken)
         {
-            var result = await _identityService.ChangePreferredCurrencyAsync(_currentUserService.UserId, request.Currency);
+            var result = await _identityService.ChangePreferredCurrencyAsync(_currentUserService.UserId!, request.Currency);
             
             if (!result.Succeeded)
             {
