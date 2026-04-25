@@ -1,9 +1,13 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Wealthra.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace Wealthra.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260419120000_AddRecommendationEngineAssets")]
     public partial class AddRecommendationEngineAssets : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,11 +1,15 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Wealthra.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace Wealthra.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260419120100_AddSubscriptionPlans")]
     public partial class AddSubscriptionPlans : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -11,7 +11,7 @@ services:
       - api
 
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: wealthra_db
     restart: unless-stopped
     environment:
