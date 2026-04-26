@@ -103,8 +103,7 @@ namespace Wealthra.Api.Controllers
                 Expires = expires,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
-                Path = "/",
-                Domain = ".wealthra.cloud"
+                Path = "/"
             };
 
             Response.Cookies.Append("refresh-token", token, cookieOptions);
