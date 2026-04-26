@@ -149,6 +149,8 @@ namespace Wealthra.Infrastructure.Identity.Services
 
             if (user == null) return null;
 
+            var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+
             return new UserDto(
                 user.Id,
                 user.Email!,
@@ -156,7 +158,8 @@ namespace Wealthra.Infrastructure.Identity.Services
                 user.LastName,
                 user.AvatarUrl,
                 user.CreatedAt,
-                user.PreferredCurrency
+                user.PreferredCurrency,
+                isAdmin
             );
         }
 

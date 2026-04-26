@@ -7,6 +7,7 @@ namespace Wealthra.Application.Features.Identity.Models
         string LastName,
         string? AvatarUrl,
         DateTime CreatedAt,
-        string PreferredCurrency
+        string PreferredCurrency,
+        bool IsAdmin
     );
 }
