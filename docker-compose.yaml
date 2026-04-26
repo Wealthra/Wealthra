@@ -6,7 +6,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    command: caddy reverse-proxy --from 89.167.80.182.nip.io --to http://api:8080
+    command: caddy reverse-proxy --from api.wealthra.cloud --to http://api:8080
     depends_on:
       - api
 
