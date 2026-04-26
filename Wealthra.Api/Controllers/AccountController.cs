@@ -102,18 +102,12 @@ namespace Wealthra.Api.Controllers
                 HttpOnly = true,
                 Expires = expires,
                 Secure = true,
-                SameSite = SameSiteMode.None,
-                Path = "/"
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                Domain = ".wealthra.cloud"
             };
 
             Response.Cookies.Append("refresh-token", token, cookieOptions);
-
-
-            var setCookieHeader = Response.Headers["Set-Cookie"].ToString();
-            if (!string.IsNullOrEmpty(setCookieHeader) && !setCookieHeader.Contains("Partitioned"))
-            {
-                Response.Headers["Set-Cookie"] = setCookieHeader + "; Partitioned";
-            }
         }
 
         [HttpGet("me")]
