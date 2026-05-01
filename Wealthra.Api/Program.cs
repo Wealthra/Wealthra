@@ -221,11 +221,12 @@ using (var scope = app.Services.CreateScope())
             // 2. Seed Identity Data
             await Wealthra.Infrastructure.Persistence.Seeding.IdentitySeeder.SeedDefaultUsersAndRolesAsync(services);
 
-            // 3. Seed Demo Data (categories, incomes, expenses, budgets, goals)
-            await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
-
-            // 4. Seed data for anomaly detection (anomalous.user + stable.user)
-            await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedAnomalyDetectionDataAsync(services);
+            // 3–4. Demo / anomaly SQL seeding uses raw SQL (PostgreSQL); skip for in-memory integration tests.
+            if (!app.Environment.IsEnvironment("Testing"))
+            {
+                await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
+                await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedAnomalyDetectionDataAsync(services);
+            }
 
             break; // Success! Exit the retry loop
         }

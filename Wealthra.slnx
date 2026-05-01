@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Wealthra.Api/Wealthra.Api.csproj" />
+  <Project Path="Wealthra.Api.IntegrationTests/Wealthra.Api.IntegrationTests.csproj" />
   <Project Path="Wealthra.Application.UnitTests/Wealthra.Application.UnitTests.csproj" />
   <Project Path="Wealthra.Application/Wealthra.Application.csproj" />
   <Project Path="Wealthra.Domain/Wealthra.Domain.csproj" />
