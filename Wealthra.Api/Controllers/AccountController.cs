@@ -18,6 +18,7 @@ using Wealthra.Application.Features.Identity.Commands.ChangePreferredCurrency;
 using Wealthra.Application.Features.Identity.Commands.UpdateUserTier;
 using Wealthra.Application.Features.Identity.Queries.GetUserUsage;
 using Wealthra.Application.Features.Identity.Queries.SearchUserUsages;
+using Wealthra.Application.Common.Security;
 
 namespace Wealthra.Api.Controllers
 {
@@ -146,7 +147,7 @@ namespace Wealthra.Api.Controllers
             return NoContent();
         }
 
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = AuthPolicies.AdminElevated)]
             [HttpPut("admin/update-tier")]
         public async Task<ActionResult> UpdateTier(UpdateUserTierCommand command)
         {
@@ -161,7 +162,7 @@ namespace Wealthra.Api.Controllers
             return Ok(response);
         }
 
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = AuthPolicies.AnyStaff)]
         [HttpGet("admin/usages")]
         public async Task<ActionResult<List<UserUsageDto>>> GetUsersUsage([FromQuery] string? email, [FromQuery] string? name)
         {

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Admin.Models;
+using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Admin.Queries.ListAdminAuditLogs;
 
@@ -19,7 +20,7 @@ public class ListAdminAuditLogsQueryHandler : IRequestHandler<ListAdminAuditLogs
 
     public async Task<List<AdminAuditLogDto>> Handle(ListAdminAuditLogsQuery request, CancellationToken cancellationToken)
     {
-        var q = _db.AdminAuditLogs.AsNoTracking().OrderByDescending(x => x.CreatedUtc);
+        IQueryable<AdminAuditLog> q = _db.AdminAuditLogs.AsNoTracking().OrderByDescending(x => x.CreatedUtc);
         if (!string.IsNullOrWhiteSpace(request.ActorUserId))
         {
             q = q.Where(x => x.ActorUserId == request.ActorUserId);

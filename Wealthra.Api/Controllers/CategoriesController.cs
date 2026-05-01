@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wealthra.Application.Common.Security;
 using Wealthra.Application.Features.Categories.Commands.CreateCategory;
 using Wealthra.Application.Features.Categories.Commands.DeleteCategory;
 using Wealthra.Application.Features.Categories.Commands.UpdateCategory;
@@ -17,7 +18,7 @@ public class CategoriesController : ApiControllerBase
         return Ok(categories);
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthPolicies.AdminElevated)]
     [HttpPost]
     public async Task<ActionResult<int>> Create(CreateCategoryCommand command)
     {
@@ -25,7 +26,7 @@ public class CategoriesController : ApiControllerBase
         return CreatedAtAction(nameof(GetAll), new { id = categoryId }, categoryId);
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthPolicies.AdminElevated)]
     [HttpPut("{id}")]
     public async Task<ActionResult> Update(int id, UpdateCategoryCommand command)
     {
@@ -38,7 +39,7 @@ public class CategoriesController : ApiControllerBase
         return NoContent();
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthPolicies.AdminElevated)]
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {

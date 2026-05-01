@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wealthra.Application.Common.Security;
 using Wealthra.Application.Features.Admin.Commands.AssignUserPlan;
 using Wealthra.Application.Features.Admin.Commands.CreateSubscriptionPlan;
 using Wealthra.Application.Features.Admin.Commands.DeleteSubscriptionPlan;
@@ -12,7 +13,7 @@ using Wealthra.Application.Features.Admin.Queries.GetUsersByPlan;
 
 namespace Wealthra.Api.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = AuthPolicies.FinanceTeam)]
 public class AdminPlansController : ApiControllerBase
 {
     [HttpGet("plans")]

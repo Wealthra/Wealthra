@@ -23,10 +23,14 @@ public class GetAiUsageSummaryQueryHandler : IRequestHandler<GetAiUsageSummaryQu
             .Where(x => x.TimestampUtc >= since)
             .ToListAsync(cancellationToken);
 
+        var totalCost = rows.Any(x => x.EstimatedCostUsd.HasValue)
+            ? rows.Sum(x => x.EstimatedCostUsd ?? 0)
+            : (decimal?)null;
+
         return new AiUsageSummaryDto(
             rows.Sum(x => (long)x.PromptTokens),
             rows.Sum(x => (long)x.CompletionTokens),
-            rows.Sum(x => x.EstimatedCostUsd ?? 0) == 0 ? null : rows.Sum(x => x.EstimatedCostUsd ?? 0),
+            totalCost,
             rows.Count);
     }
 }

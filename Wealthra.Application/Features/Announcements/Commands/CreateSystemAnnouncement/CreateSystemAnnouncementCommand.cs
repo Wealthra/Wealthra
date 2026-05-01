@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Wealthra.Application.Common.Interfaces;
-using Wealthra.Application.Features.Announcements.Models;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
 

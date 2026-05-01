@@ -28,7 +28,7 @@ public class DeleteSystemAnnouncementCommandHandler : IRequestHandler<DeleteSyst
     public async Task<Unit> Handle(DeleteSystemAnnouncementCommand request, CancellationToken cancellationToken)
     {
         var entity = await _db.SystemAnnouncements.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
-        if (entity == null) throw new NotFoundException(nameof(entity), request.Id);
+        if (entity == null) throw new NotFoundException("SystemAnnouncement", request.Id);
         _db.SystemAnnouncements.Remove(entity);
         await _db.SaveChangesAsync(cancellationToken);
         return Unit.Value;
