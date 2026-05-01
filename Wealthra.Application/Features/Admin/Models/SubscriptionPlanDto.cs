@@ -6,6 +6,8 @@ public record SubscriptionPlanDto(
     string Description,
     int MonthlyOcrLimit,
     int MonthlySttLimit,
+    decimal? MonthlyPrice,
+    string PriceCurrency,
     bool IsActive,
     DateTimeOffset CreatedOn,
     DateTimeOffset? UpdatedOn);

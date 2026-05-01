@@ -357,7 +357,7 @@ namespace Wealthra.Infrastructure.Identity.Services
 
         public async Task<PaginatedList<AdminUserListItemDto>> GetAdminUsersPageAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken = default)
         {
-            var query = _userManager.Users.AsNoTracking().Include(u => u.SubscriptionPlan);
+            IQueryable<ApplicationUser> query = _userManager.Users.AsNoTracking().Include(u => u.SubscriptionPlan);
 
             if (!string.IsNullOrWhiteSpace(search))
             {

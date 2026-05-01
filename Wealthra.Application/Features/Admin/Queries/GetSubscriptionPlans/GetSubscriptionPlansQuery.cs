@@ -26,7 +26,7 @@ public class GetSubscriptionPlansQueryHandler : IRequestHandler<GetSubscriptionP
 
         return await query
             .OrderBy(x => x.Name)
-            .Select(x => new SubscriptionPlanDto(x.Id, x.Name, x.Description, x.MonthlyOcrLimit, x.MonthlySttLimit, x.IsActive, x.CreatedOn, x.UpdatedOn))
+            .Select(x => new SubscriptionPlanDto(x.Id, x.Name, x.Description, x.MonthlyOcrLimit, x.MonthlySttLimit, x.MonthlyPrice, x.PriceCurrency, x.IsActive, x.CreatedOn, x.UpdatedOn))
             .ToListAsync(cancellationToken);
     }
 }

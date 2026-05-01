@@ -5,7 +5,7 @@ using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.CreateCategory;
 
-public record CreateCategoryCommand(string CategoryName) : IRequest<int>;
+public record CreateCategoryCommand(string CategoryName, string? IconKey = null, int SortOrder = 0) : IRequest<int>;
 
 public class CreateCategoryCommandValidator : AbstractValidator<CreateCategoryCommand>
 {
@@ -33,6 +33,7 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
     {
         var name = request.CategoryName.Trim();
         var category = new Category(name, name);
+        category.UpdateDisplay(request.IconKey?.Trim(), request.SortOrder, isActive: true);
 
         _context.Categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);

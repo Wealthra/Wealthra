@@ -23,10 +23,17 @@ public class AssignUserPlanCommandValidator : AbstractValidator<AssignUserPlanCo
 public class AssignUserPlanCommandHandler : IRequestHandler<AssignUserPlanCommand, Unit>
 {
     private readonly IIdentityService _identityService;
+    private readonly IAdminAuditService _adminAuditService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AssignUserPlanCommandHandler(IIdentityService identityService)
+    public AssignUserPlanCommandHandler(
+        IIdentityService identityService,
+        IAdminAuditService adminAuditService,
+        ICurrentUserService currentUserService)
     {
         _identityService = identityService;
+        _adminAuditService = adminAuditService;
+        _currentUserService = currentUserService;
     }
 
     public async Task<Unit> Handle(AssignUserPlanCommand request, CancellationToken cancellationToken)
@@ -36,6 +43,14 @@ public class AssignUserPlanCommandHandler : IRequestHandler<AssignUserPlanComman
         {
             throw new NotFoundException("UserOrPlan", $"{request.Email}:{request.PlanId}");
         }
+
+        await _adminAuditService.WriteAsync(
+            _currentUserService.UserId ?? "unknown",
+            "assign_user_plan",
+            null,
+            new { request.Email, request.PlanId },
+            _currentUserService.ClientIpAddress,
+            cancellationToken);
 
         return Unit.Value;
     }

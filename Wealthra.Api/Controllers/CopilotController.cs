@@ -11,11 +11,16 @@ namespace Wealthra.Api.Controllers
     {
         private readonly ICopilotService _copilotService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IUsageDailyAggregateService _usageDailyAggregateService;
 
-        public CopilotController(ICopilotService copilotService, ICurrentUserService currentUserService)
+        public CopilotController(
+            ICopilotService copilotService,
+            ICurrentUserService currentUserService,
+            IUsageDailyAggregateService usageDailyAggregateService)
         {
             _copilotService = copilotService;
             _currentUserService = currentUserService;
+            _usageDailyAggregateService = usageDailyAggregateService;
         }
 
         [HttpPost("chat")]
@@ -39,6 +44,7 @@ namespace Wealthra.Api.Controllers
             }
 
             var response = await _copilotService.ChatAsync(request.Message, userId, authToken, cancellationToken);
+            await _usageDailyAggregateService.IncrementCopilotAsync(userId, cancellationToken);
             return Ok(response);
         }
 

@@ -2,4 +2,6 @@ namespace Wealthra.Application.Features.Categories.Models;
 
 public record CategoryDto(
     int Id,
-    string CategoryName);
+    string CategoryName,
+    string? IconKey,
+    int SortOrder);

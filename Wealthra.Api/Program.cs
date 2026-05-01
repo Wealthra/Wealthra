@@ -3,6 +3,7 @@ using Serilog;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Api.Hubs;
 using Wealthra.Api.Infrastructure;
+using Wealthra.Api.Middleware;
 using Wealthra.Api.Realtime;
 using Wealthra.Application;
 using Wealthra.Application.Common.Interfaces;
@@ -176,6 +177,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseMiddleware<IpBlockMiddleware>();
 
 // 4. Configure Request Pipeline
 // Generates the JSON spec at /openapi/v1.json

@@ -7,7 +7,7 @@ using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.UpdateCategory;
 
-public record UpdateCategoryCommand(int Id, string CategoryName) : IRequest;
+public record UpdateCategoryCommand(int Id, string CategoryName, string? IconKey = null, int? SortOrder = null, bool? IsActive = null) : IRequest;
 
 public class UpdateCategoryCommandValidator : AbstractValidator<UpdateCategoryCommand>
 {
@@ -46,6 +46,13 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         var name = request.CategoryName.Trim();
         category.UpdateNames(name, name);
+        if (request.SortOrder.HasValue || request.IconKey != null || request.IsActive.HasValue)
+        {
+            category.UpdateDisplay(
+                request.IconKey?.Trim(),
+                request.SortOrder ?? category.SortOrder,
+                request.IsActive ?? category.IsActive);
+        }
 
         await _context.SaveChangesAsync(cancellationToken);
 

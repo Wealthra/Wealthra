@@ -13,6 +13,8 @@ public class UpdateSubscriptionPlanCommand : IRequest<Unit>
     public string Description { get; set; } = string.Empty;
     public int MonthlyOcrLimit { get; set; }
     public int MonthlySttLimit { get; set; }
+    public decimal? MonthlyPrice { get; set; }
+    public string PriceCurrency { get; set; } = "TRY";
     public bool IsActive { get; set; }
 }
 
@@ -25,6 +27,7 @@ public class UpdateSubscriptionPlanCommandValidator : AbstractValidator<UpdateSu
         RuleFor(x => x.Description).NotEmpty().MaximumLength(500);
         RuleFor(x => x.MonthlyOcrLimit).GreaterThanOrEqualTo(0);
         RuleFor(x => x.MonthlySttLimit).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.PriceCurrency).NotEmpty().MaximumLength(8);
     }
 }
 
@@ -51,6 +54,8 @@ public class UpdateSubscriptionPlanCommandHandler : IRequestHandler<UpdateSubscr
         plan.Description = request.Description.Trim();
         plan.MonthlyOcrLimit = request.MonthlyOcrLimit;
         plan.MonthlySttLimit = request.MonthlySttLimit;
+        plan.MonthlyPrice = request.MonthlyPrice;
+        plan.PriceCurrency = request.PriceCurrency.Trim().ToUpperInvariant();
         plan.IsActive = request.IsActive;
         plan.UpdatedOn = DateTimeOffset.UtcNow;
 

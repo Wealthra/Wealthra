@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Wealthra.Application.Common.Constants;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Expenses.Models;
 
@@ -15,6 +16,9 @@ namespace Wealthra.Infrastructure.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<GroqExpenseExtractionEnrichmentService> _logger;
+        private readonly IRuntimeAppSettings _runtimeAppSettings;
+        private readonly IAiUsageRecorder _aiUsageRecorder;
+        private readonly ICurrentUserService _currentUserService;
 
         private static readonly JsonSerializerOptions SerializerOptions = new()
         {
@@ -26,11 +30,17 @@ namespace Wealthra.Infrastructure.Services
         public GroqExpenseExtractionEnrichmentService(
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            ILogger<GroqExpenseExtractionEnrichmentService> logger)
+            ILogger<GroqExpenseExtractionEnrichmentService> logger,
+            IRuntimeAppSettings runtimeAppSettings,
+            IAiUsageRecorder aiUsageRecorder,
+            ICurrentUserService currentUserService)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _runtimeAppSettings = runtimeAppSettings;
+            _aiUsageRecorder = aiUsageRecorder;
+            _currentUserService = currentUserService;
         }
 
         public async Task<IReadOnlyList<ExtractedExpenseDto>> EnrichAsync(
@@ -44,7 +54,10 @@ namespace Wealthra.Infrastructure.Services
             }
 
             var apiKey = _configuration["Groq:ApiKey"];
-            var model = _configuration["Groq:Model"] ?? "meta-llama/llama-4-scout-17b-16e-instruct";
+            var modelFromDb = await _runtimeAppSettings.GetAsync(AppSettingsKeys.AiEnrichmentModel, cancellationToken);
+            var model = !string.IsNullOrWhiteSpace(modelFromDb)
+                ? modelFromDb!
+                : _configuration["Groq:Model"] ?? "meta-llama/llama-4-scout-17b-16e-instruct";
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 _logger.LogWarning("Groq:ApiKey is not configured; skipping enrichment.");
@@ -111,7 +124,9 @@ namespace Wealthra.Infrastructure.Services
                 }
 
                 using var doc = JsonDocument.Parse(responseText);
-                var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                var root = doc.RootElement;
+                await RecordUsageFromGroqResponseAsync(root, model, cancellationToken);
+                var content = root.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     throw new InvalidOperationException("Groq returned empty content.");
@@ -206,6 +221,40 @@ namespace Wealthra.Infrastructure.Services
             {
                 _logger.LogWarning(ex, "Groq enrichment failed; returning raw extraction results.");
                 return extracted;
+            }
+        }
+
+        private async Task RecordUsageFromGroqResponseAsync(JsonElement root, string model, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (!root.TryGetProperty("usage", out var usage))
+                {
+                    return;
+                }
+
+                var prompt = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
+                var completion = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
+                decimal? cost = null;
+                var promptPrice = _configuration.GetValue<decimal?>("Groq:PricePer1MPromptUsd");
+                var completionPrice = _configuration.GetValue<decimal?>("Groq:PricePer1MCompletionUsd");
+                if (promptPrice is not null || completionPrice is not null)
+                {
+                    cost = prompt / 1_000_000m * (promptPrice ?? 0) + completion / 1_000_000m * (completionPrice ?? 0);
+                }
+
+                await _aiUsageRecorder.RecordAsync(
+                    "GroqExpenseEnrichment",
+                    model,
+                    prompt,
+                    completion,
+                    cost,
+                    _currentUserService.UserId,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Skipping AI usage record.");
             }
         }
 

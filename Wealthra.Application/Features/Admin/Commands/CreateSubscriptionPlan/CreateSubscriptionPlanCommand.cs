@@ -12,6 +12,8 @@ public class CreateSubscriptionPlanCommand : IRequest<int>
     public string Description { get; set; } = string.Empty;
     public int MonthlyOcrLimit { get; set; }
     public int MonthlySttLimit { get; set; }
+    public decimal? MonthlyPrice { get; set; }
+    public string PriceCurrency { get; set; } = "TRY";
     public bool IsActive { get; set; } = true;
 }
 
@@ -23,6 +25,7 @@ public class CreateSubscriptionPlanCommandValidator : AbstractValidator<CreateSu
         RuleFor(x => x.Description).NotEmpty().MaximumLength(500);
         RuleFor(x => x.MonthlyOcrLimit).GreaterThanOrEqualTo(0);
         RuleFor(x => x.MonthlySttLimit).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.PriceCurrency).NotEmpty().MaximumLength(8);
     }
 }
 
@@ -45,6 +48,8 @@ public class CreateSubscriptionPlanCommandHandler : IRequestHandler<CreateSubscr
             Description = request.Description.Trim(),
             MonthlyOcrLimit = request.MonthlyOcrLimit,
             MonthlySttLimit = request.MonthlySttLimit,
+            MonthlyPrice = request.MonthlyPrice,
+            PriceCurrency = request.PriceCurrency.Trim().ToUpperInvariant(),
             IsActive = request.IsActive,
             CreatedOn = DateTimeOffset.UtcNow
         };
@@ -55,7 +60,7 @@ public class CreateSubscriptionPlanCommandHandler : IRequestHandler<CreateSubscr
         await _adminRealtimeService.PublishActivityAsync(
             "plan.created",
             $"Plan {entity.Name} created.",
-            new SubscriptionPlanDto(entity.Id, entity.Name, entity.Description, entity.MonthlyOcrLimit, entity.MonthlySttLimit, entity.IsActive, entity.CreatedOn, entity.UpdatedOn),
+            new SubscriptionPlanDto(entity.Id, entity.Name, entity.Description, entity.MonthlyOcrLimit, entity.MonthlySttLimit, entity.MonthlyPrice, entity.PriceCurrency, entity.IsActive, entity.CreatedOn, entity.UpdatedOn),
             cancellationToken);
 
         return entity.Id;

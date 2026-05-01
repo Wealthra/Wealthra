@@ -1,16 +1,23 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+﻿using System.Diagnostics;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
+using Wealthra.Domain.Entities;
+using Wealthra.Infrastructure.Persistence;
 
 namespace Wealthra.Api.Infrastructure
 {
     public class GlobalExceptionHandler : IExceptionHandler
     {
         private readonly ILogger<GlobalExceptionHandler> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+        public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IServiceScopeFactory scopeFactory)
         {
             _logger = logger;
+            _scopeFactory = scopeFactory;
         }
 
         public async ValueTask<bool> TryHandleAsync(
@@ -53,6 +60,34 @@ namespace Wealthra.Api.Infrastructure
                 problemDetails.Title = "Server Error";
                 problemDetails.Status = StatusCodes.Status500InternalServerError;
                 problemDetails.Detail = "An internal error occurred. Please contact support.";
+            }
+
+            if (problemDetails.Status == StatusCodes.Status500InternalServerError)
+            {
+                try
+                {
+                    await using var scope = _scopeFactory.CreateAsyncScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                        ?? httpContext.User.FindFirstValue("sub");
+                    db.ApiErrorLogs.Add(new ApiErrorLog
+                    {
+                        StatusCode = problemDetails.Status.Value,
+                        Path = httpContext.Request.Path,
+                        Method = httpContext.Request.Method,
+                        UserId = userId,
+                        ExceptionType = exception.GetType().FullName,
+                        Message = exception.Message,
+                        StackTrace = exception.StackTrace,
+                        CorrelationId = Activity.Current?.Id,
+                        CreatedUtc = DateTimeOffset.UtcNow
+                    });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to persist API error log.");
+                }
             }
 
             httpContext.Response.StatusCode = problemDetails.Status.Value;
