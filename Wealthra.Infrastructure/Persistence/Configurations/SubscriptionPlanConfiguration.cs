@@ -22,6 +22,13 @@ namespace Wealthra.Infrastructure.Persistence.Configurations
             builder.Property(x => x.MonthlySttLimit)
                 .IsRequired();
 
+            builder.Property(x => x.MonthlyPrice)
+                .HasPrecision(18, 2);
+
+            builder.Property(x => x.PriceCurrency)
+                .HasMaxLength(8)
+                .IsRequired();
+
             builder.HasIndex(x => x.Name)
                 .IsUnique();
         }

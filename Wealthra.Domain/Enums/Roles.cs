@@ -4,6 +4,8 @@
     {
         SuperAdmin,
         Admin,
+        Support,
+        Finance,
         Moderator,
         Basic
     }

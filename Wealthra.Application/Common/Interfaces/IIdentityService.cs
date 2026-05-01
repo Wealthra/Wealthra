@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Admin.Models;
@@ -24,5 +25,15 @@ namespace Wealthra.Application.Common.Interfaces
         Task<AppUsageSummaryDto> GetAppUsageSummaryAsync();
         Task<(bool Success, string UserId, string Token)> GeneratePasswordResetTokenAsync(string email);
         Task<Result> ResetPasswordWithTokenAsync(string userId, string token, string newPassword);
+
+        Task<PaginatedList<AdminUserListItemDto>> GetAdminUsersPageAsync(int pageNumber, int pageSize, string? search, System.Threading.CancellationToken cancellationToken = default);
+        Task<AdminUserDetailDto?> GetAdminUserDetailAsync(string userId, System.Threading.CancellationToken cancellationToken = default);
+        Task<Result> SetUserLockoutAsync(string actorUserId, string targetUserId, bool lockout, DateTimeOffset? lockoutEnd, System.Threading.CancellationToken cancellationToken = default);
+        Task<Result> SetUserRolesAsync(string actorUserId, string targetUserId, IReadOnlyList<string> roles, System.Threading.CancellationToken cancellationToken = default);
+        Task<Result> RevokeAllRefreshTokensAsync(string targetUserId, System.Threading.CancellationToken cancellationToken = default);
+        Task<Result> AdminSetPasswordAsync(string targetUserId, string newPassword, System.Threading.CancellationToken cancellationToken = default);
+
+        Task<RevenueAnalyticsDto> GetRevenueAnalyticsAsync(System.Threading.CancellationToken cancellationToken = default);
+        Task<GrowthAnalyticsDto> GetGrowthAnalyticsAsync(System.Threading.CancellationToken cancellationToken = default);
     }
 }

@@ -8,6 +8,9 @@ namespace Wealthra.Domain.Entities
         public string Description { get; set; } = string.Empty;
         public int MonthlyOcrLimit { get; set; }
         public int MonthlySttLimit { get; set; }
+        /// <summary>Optional list price for MRR reporting (no payment gateway required).</summary>
+        public decimal? MonthlyPrice { get; set; }
+        public string PriceCurrency { get; set; } = "TRY";
         public bool IsActive { get; set; } = true;
         public DateTimeOffset CreatedOn { get; set; } = DateTimeOffset.UtcNow;
         public DateTimeOffset? UpdatedOn { get; set; }

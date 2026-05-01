@@ -367,3 +367,23 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Dotnet tools
+.dotnet/
+.tools/
+.local/
+.dotnet-cli-home/
+Library/
+bin/Debug/
+bin/Release/
+obj/Debug/
+obj/Release/
+bin/
+obj/
+bin/
+obj/
+bin/
+obj/
+
+# .NET SDK TFM output (e.g. bin/Debug/net10.0); [Bb]in/ already ignores bin/, this is explicit
+**/net10.0/

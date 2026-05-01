@@ -75,8 +75,10 @@ namespace Wealthra.Infrastructure
             services.AddDistributedMemoryCache(); 
             services.AddScoped<ICacheService, CacheService>();
 
-            // Currency Exchange Service
-            services.AddHttpClient<ICurrencyExchangeService, FrankfurterExchangeService>();
+            // Currency: Frankfurter HTTP client + chained service (manual rates + provider order)
+            services.AddHttpClient<FrankfurterExchangeService>();
+            services.AddScoped<FrankfurterExchangeService>();
+            services.AddScoped<ICurrencyExchangeService, ChainedCurrencyExchangeService>();
 
             // 5. Services
             services.AddTransient<DateTimeService>();
@@ -84,6 +86,10 @@ namespace Wealthra.Infrastructure
             services.AddTransient<TokenGenerator>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IUsageTrackerService, UsageTrackerService>();
+            services.AddScoped<IUsageDailyAggregateService, UsageDailyAggregateService>();
+            services.AddScoped<IAdminAuditService, AdminAuditService>();
+            services.AddScoped<IAiUsageRecorder, AiUsageRecorderService>();
+            services.AddScoped<IRuntimeAppSettings, RuntimeAppSettingsService>();
             services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
             services.AddScoped<IEmailSender, EmailService>();
             services.AddScoped<IReportExportService, ReportExportService>();

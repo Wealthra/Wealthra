@@ -14,17 +14,20 @@ namespace Wealthra.Infrastructure.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly IApplicationDbContext _applicationDbContext;
         private readonly IAdminRealtimeService _adminRealtimeService;
+        private readonly IUsageDailyAggregateService _usageDailyAggregateService;
 
         public UsageTrackerService(
             UserManager<ApplicationUser> userManager,
             ICurrentUserService currentUserService,
             IApplicationDbContext applicationDbContext,
-            IAdminRealtimeService adminRealtimeService)
+            IAdminRealtimeService adminRealtimeService,
+            IUsageDailyAggregateService usageDailyAggregateService)
         {
             _userManager = userManager;
             _currentUserService = currentUserService;
             _applicationDbContext = applicationDbContext;
             _adminRealtimeService = adminRealtimeService;
+            _usageDailyAggregateService = usageDailyAggregateService;
         }
 
         private sealed record PlanLimits(int OcrLimit, int SttLimit);
@@ -85,6 +88,7 @@ namespace Wealthra.Infrastructure.Services
                 user.OcrRequestsThisMonth++;
                 user.LastUsageActivityDate = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+                await _usageDailyAggregateService.IncrementOcrAsync(user.Id, cancellationToken);
                 await _adminRealtimeService.PublishActivityAsync(
                     "usage.ocr.incremented",
                     $"OCR usage incremented for {user.Email}.",
@@ -101,6 +105,7 @@ namespace Wealthra.Infrastructure.Services
                 user.SttRequestsThisMonth++;
                 user.LastUsageActivityDate = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+                await _usageDailyAggregateService.IncrementSttAsync(user.Id, cancellationToken);
                 await _adminRealtimeService.PublishActivityAsync(
                     "usage.stt.incremented",
                     $"STT usage incremented for {user.Email}.",

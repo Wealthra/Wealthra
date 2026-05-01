@@ -17,7 +17,16 @@ namespace Wealthra.Application.Common.Interfaces
         DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; }
         DbSet<FinancialTip> FinancialTips { get; }
         DbSet<SubscriptionPlan> SubscriptionPlans { get; }
-    
+        DbSet<AppConfigurationEntry> AppConfigurationEntries { get; }
+        DbSet<AdminAuditLog> AdminAuditLogs { get; }
+        DbSet<ApiErrorLog> ApiErrorLogs { get; }
+        DbSet<AiUsageRecord> AiUsageRecords { get; }
+        DbSet<UsageDailyAggregate> UsageDailyAggregates { get; }
+        DbSet<SystemAnnouncement> SystemAnnouncements { get; }
+        DbSet<SupportTicket> SupportTickets { get; }
+        DbSet<ManualExchangeRate> ManualExchangeRates { get; }
+        DbSet<BlockedIpAddress> BlockedIpAddresses { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

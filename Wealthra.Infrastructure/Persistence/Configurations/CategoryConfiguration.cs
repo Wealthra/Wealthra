@@ -20,6 +20,11 @@ namespace Wealthra.Infrastructure.Persistence.Configurations
                 .HasMaxLength(100)
                 .IsRequired();
 
+            builder.Property(x => x.IconKey)
+                .HasMaxLength(120);
+
+            builder.HasIndex(x => x.SortOrder);
+
             builder.HasMany(x => x.Budgets)
                 .WithOne(x => x.Category)
                 .HasForeignKey(x => x.CategoryId)

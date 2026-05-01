@@ -6,6 +6,8 @@ using Wealthra.Api.Infrastructure;
 using Wealthra.Api.Realtime;
 using Wealthra.Application;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Common.Security;
+using Wealthra.Domain.Enums;
 using Wealthra.Infrastructure;
 using Wealthra.Infrastructure.Persistence;
 using Microsoft.OpenApi; // Note the change to Models namespace
@@ -18,12 +20,21 @@ builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
 // 2. Add Services to DI Container
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireRole("Admin"));
+    string[] elevated = [Roles.SuperAdmin.ToString(), Roles.Admin.ToString()];
+    string[] finance = [Roles.SuperAdmin.ToString(), Roles.Admin.ToString(), Roles.Finance.ToString()];
+    string[] support = [Roles.SuperAdmin.ToString(), Roles.Admin.ToString(), Roles.Support.ToString()];
+    string[] anyStaff = [Roles.SuperAdmin.ToString(), Roles.Admin.ToString(), Roles.Finance.ToString(), Roles.Support.ToString()];
+
+    options.AddPolicy(AuthPolicies.AdminElevated, policy => policy.RequireRole(elevated));
+    options.AddPolicy(AuthPolicies.FinanceTeam, policy => policy.RequireRole(finance));
+    options.AddPolicy(AuthPolicies.SupportTeam, policy => policy.RequireRole(support));
+    options.AddPolicy(AuthPolicies.AnyStaff, policy => policy.RequireRole(anyStaff));
+    options.AddPolicy(AuthPolicies.AdminOnly, policy => policy.RequireRole(elevated));
 });
 builder.Services.AddScoped<IAdminRealtimeService, SignalRAdminRealtimeService>();
 builder.Services.AddHostedService<AdminSnapshotHostedService>();

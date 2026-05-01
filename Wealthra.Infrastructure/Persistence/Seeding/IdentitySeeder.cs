@@ -14,8 +14,15 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            // 1. Seed Roles based on your Domain Enum
-            var roles = new[] { Roles.Admin.ToString(), Roles.Basic.ToString() };
+            // 1. Seed roles
+            var roles = new[]
+            {
+                Roles.SuperAdmin.ToString(),
+                Roles.Admin.ToString(),
+                Roles.Support.ToString(),
+                Roles.Finance.ToString(),
+                Roles.Basic.ToString()
+            };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
@@ -24,9 +31,10 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
                 }
             }
 
-            // 2. Seed Admin User
+            // 2. Seed Admin User (SuperAdmin + legacy Admin)
             var adminEmail = "admin@wealthra.local";
-            if (await userManager.FindByEmailAsync(adminEmail) == null)
+            var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+            if (existingAdmin == null)
             {
                 var adminUser = new ApplicationUser
                 {
@@ -41,8 +49,14 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
                 var result = await userManager.CreateAsync(adminUser, "AdminPassword123!");
                 if (result.Succeeded)
                 {
+                    await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin.ToString());
                     await userManager.AddToRoleAsync(adminUser, Roles.Admin.ToString());
                 }
+            }
+            else
+            {
+                await EnsureRoleAsync(userManager, existingAdmin, Roles.SuperAdmin.ToString());
+                await EnsureRoleAsync(userManager, existingAdmin, Roles.Admin.ToString());
             }
 
             // 3. Seed Normal User
@@ -53,6 +67,14 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
 
             // 5. Seed Stable User (for testing healthy balance/no alerts)
             await CreateUserIfNotExists(userManager, "stable.user@wealthra.local", "Stable", "Saver", "UserPassword123!");
+        }
+
+        private static async Task EnsureRoleAsync(UserManager<ApplicationUser> userManager, ApplicationUser user, string role)
+        {
+            if (!await userManager.IsInRoleAsync(user, role))
+            {
+                await userManager.AddToRoleAsync(user, role);
+            }
         }
 
         private static async Task CreateUserIfNotExists(UserManager<ApplicationUser> userManager, string email, string firstName, string lastName, string password)

@@ -39,6 +39,15 @@ namespace Wealthra.Infrastructure.Persistence
         public DbSet<MonthlyCategoryMetric> MonthlyCategoryMetrics { get; set; }
         public DbSet<FinancialTip> FinancialTips { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+        public DbSet<AppConfigurationEntry> AppConfigurationEntries { get; set; }
+        public DbSet<AdminAuditLog> AdminAuditLogs { get; set; }
+        public DbSet<ApiErrorLog> ApiErrorLogs { get; set; }
+        public DbSet<AiUsageRecord> AiUsageRecords { get; set; }
+        public DbSet<UsageDailyAggregate> UsageDailyAggregates { get; set; }
+        public DbSet<SystemAnnouncement> SystemAnnouncements { get; set; }
+        public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<ManualExchangeRate> ManualExchangeRates { get; set; }
+        public DbSet<BlockedIpAddress> BlockedIpAddresses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
