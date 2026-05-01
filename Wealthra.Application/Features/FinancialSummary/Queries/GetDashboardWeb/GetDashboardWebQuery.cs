@@ -281,7 +281,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
             .OrderByDescending(a => a.PercentageUsed)
             .ToList();
 
-        var recommendations = BuildRecommendations(budgetAlerts, prefCurrency);
+        var recommendations = DashboardWebRecommendations.BuildFromBudgetAlerts(budgetAlerts, prefCurrency);
 
         var summary = new DashboardWebSummaryDto(
             totalBalance,
@@ -330,44 +330,6 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         }
 
         return total;
-    }
-
-    private static List<DashboardWebRecommendationDto> BuildRecommendations(
-        List<DashboardWebBudgetAlertDto> alerts,
-        string currency)
-    {
-        var list = new List<DashboardWebRecommendationDto>();
-        foreach (var a in alerts.Take(10))
-        {
-            var over = a.CurrentAmount - a.LimitAmount;
-            var title = a.Status == "Exceeded"
-                ? $"You exceeded your {a.CategoryName} budget"
-                : $"You're close to your {a.CategoryName} budget";
-
-            string description;
-            if (a.Status == "Exceeded" && over > 0)
-            {
-                description = $"You are {over:F0} {currency} over your limit. Consider reducing {a.CategoryName} spend next month.";
-            }
-            else
-            {
-                var room = a.LimitAmount - a.CurrentAmount;
-                description = room >= 0
-                    ? $"Leave about {room:F0} {currency} in this category to stay within your limit."
-                    : "Review this category to avoid overspending.";
-            }
-
-            var severity = a.Status == "Exceeded" ? "high" : "medium";
-            list.Add(new DashboardWebRecommendationDto(
-                $"budget_{a.BudgetId}",
-                "spending_insight",
-                title,
-                description,
-                a.CategoryName,
-                severity));
-        }
-
-        return list;
     }
 
     private sealed record CurrencyTotal(string Currency, decimal Total);
