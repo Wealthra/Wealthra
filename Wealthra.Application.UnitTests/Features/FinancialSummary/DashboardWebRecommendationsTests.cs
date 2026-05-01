@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Wealthra.Application.Common;
 using Wealthra.Application.Features.FinancialSummary;
 using Wealthra.Application.Features.FinancialSummary.Models;
 using Xunit;
@@ -12,9 +13,9 @@ public class DashboardWebRecommendationsTests
     [InlineData(0.004, "0.00")]
     [InlineData(0.005, "0.01")]
     [InlineData(1234.567, "1234.57")]
-    public void FormatMoneyForDisplay_UsesInvariantTwoDecimals(decimal amount, string expected)
+    public void MoneyDisplayFormatting_FormatAmount_UsesInvariantTwoDecimals(decimal amount, string expected)
     {
-        DashboardWebRecommendations.FormatMoneyForDisplay(amount).Should().Be(expected);
+        MoneyDisplayFormatting.FormatAmount(amount).Should().Be(expected);
     }
 
     [Fact]

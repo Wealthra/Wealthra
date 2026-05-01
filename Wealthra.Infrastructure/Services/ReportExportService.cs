@@ -1,7 +1,9 @@
+using System.Globalization;
 using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Wealthra.Application.Common;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Export.Models;
 
@@ -217,13 +219,13 @@ public class ReportExportService : IReportExportService
                 var netCashFlow = totalIncome - totalExpense;
 
                 table.Cell().Text(T("TotalIncome", l)).SemiBold();
-                table.Cell().Text($"{totalIncome:N2} {data.Currency}");
+                table.Cell().Text($"{MoneyDisplayFormatting.FormatAmount(totalIncome)} {data.Currency}");
 
                 table.Cell().Text(T("TotalExpenses", l)).SemiBold();
-                table.Cell().Text($"{totalExpense:N2} {data.Currency}");
+                table.Cell().Text($"{MoneyDisplayFormatting.FormatAmount(totalExpense)} {data.Currency}");
 
                 table.Cell().Text(T("NetCashFlow", l)).SemiBold();
-                table.Cell().Text($"{netCashFlow:N2} {data.Currency}")
+                table.Cell().Text($"{MoneyDisplayFormatting.FormatAmount(netCashFlow)} {data.Currency}")
                     .FontColor(netCashFlow < 0 ? Colors.Red.Medium : Colors.Green.Medium);
             });
         });
@@ -258,7 +260,7 @@ public class ReportExportService : IReportExportService
                     table.Cell().PaddingVertical(2).Text(inc.TransactionDate.ToString("yyyy-MM-dd"));
                     table.Cell().PaddingVertical(2).Text(inc.Name);
                     table.Cell().PaddingVertical(2).Text(inc.Method);
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{inc.Amount:N2}");
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(inc.Amount));
                 }
             });
         });
@@ -293,7 +295,7 @@ public class ReportExportService : IReportExportService
                     table.Cell().PaddingVertical(2).Text(exp.TransactionDate.ToString("yyyy-MM-dd"));
                     table.Cell().PaddingVertical(2).Text(exp.CategoryName);
                     table.Cell().PaddingVertical(2).Text(exp.Description);
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{exp.Amount:N2}");
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(exp.Amount));
                 }
             });
         });
@@ -326,9 +328,9 @@ public class ReportExportService : IReportExportService
                 foreach (var budget in data.Budgets.OrderByDescending(x => x.PercentageUsed))
                 {
                     table.Cell().PaddingVertical(2).Text(budget.CategoryName);
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{budget.LimitAmount:N2}");
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{budget.CurrentAmount:N2}");
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{budget.PercentageUsed:N1}%")
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(budget.LimitAmount));
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(budget.CurrentAmount));
+                    table.Cell().PaddingVertical(2).AlignRight().Text($"{budget.PercentageUsed.ToString("F1", CultureInfo.InvariantCulture)}%")
                         .FontColor(budget.PercentageUsed >= 100 ? Colors.Red.Medium : Colors.Black);
                 }
             });
@@ -365,9 +367,9 @@ public class ReportExportService : IReportExportService
                 {
                     table.Cell().PaddingVertical(2).Text(goal.Name);
                     table.Cell().PaddingVertical(2).Text(goal.Deadline.ToString("yyyy-MM-dd"));
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{goal.TargetAmount:N2}");
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{goal.CurrentAmount:N2}");
-                    table.Cell().PaddingVertical(2).AlignRight().Text($"{goal.ProgressPercentage:N1}%")
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(goal.TargetAmount));
+                    table.Cell().PaddingVertical(2).AlignRight().Text(MoneyDisplayFormatting.FormatAmount(goal.CurrentAmount));
+                    table.Cell().PaddingVertical(2).AlignRight().Text($"{goal.ProgressPercentage.ToString("F1", CultureInfo.InvariantCulture)}%")
                         .FontColor(goal.IsCompleted ? Colors.Green.Medium : Colors.Black);
                 }
             });

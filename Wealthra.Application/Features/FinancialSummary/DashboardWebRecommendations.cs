@@ -1,16 +1,13 @@
-using System.Globalization;
+using Wealthra.Application.Common;
 using Wealthra.Application.Features.FinancialSummary.Models;
 
 namespace Wealthra.Application.Features.FinancialSummary;
 
 /// <summary>
-/// Builds dashboard recommendation DTOs and formats monetary amounts for display (invariant culture, 2 decimal places).
+/// Builds dashboard web recommendation DTOs; amounts use <see cref="MoneyDisplayFormatting"/>.
 /// </summary>
 public static class DashboardWebRecommendations
 {
-    public static string FormatMoneyForDisplay(decimal amount)
-        => Math.Round(amount, 2, MidpointRounding.AwayFromZero).ToString("F2", CultureInfo.InvariantCulture);
-
     public static List<DashboardWebRecommendationDto> BuildFromBudgetAlerts(
         List<DashboardWebBudgetAlertDto> alerts,
         string currency)
@@ -27,13 +24,13 @@ public static class DashboardWebRecommendations
             if (a.Status == "Exceeded" && over > 0)
             {
                 description =
-                    $"You are {FormatMoneyForDisplay(over)} {currency} over your limit. Consider reducing {a.CategoryName} spend next month.";
+                    $"You are {MoneyDisplayFormatting.FormatAmount(over)} {currency} over your limit. Consider reducing {a.CategoryName} spend next month.";
             }
             else
             {
                 var room = a.LimitAmount - a.CurrentAmount;
                 description = room >= 0
-                    ? $"Leave about {FormatMoneyForDisplay(room)} {currency} in this category to stay within your limit."
+                    ? $"Leave about {MoneyDisplayFormatting.FormatAmount(room)} {currency} in this category to stay within your limit."
                     : "Review this category to avoid overspending.";
             }
 
