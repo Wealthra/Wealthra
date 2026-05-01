@@ -5,6 +5,6 @@ namespace Wealthra.Application.Common.Interfaces
 {
     public interface IHeuristicRecommendationService
     {
-        List<RecommendationSignal> Evaluate(IReadOnlyCollection<MonthlyCategoryMetric> metrics);
+        List<RecommendationSignal> Evaluate(IReadOnlyCollection<MonthlyCategoryMetric> metrics, string language);
     }
 }

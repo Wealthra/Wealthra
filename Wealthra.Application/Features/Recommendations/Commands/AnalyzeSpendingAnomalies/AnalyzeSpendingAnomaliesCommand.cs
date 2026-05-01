@@ -11,6 +11,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
     {
         public int Year { get; set; }
         public int Month { get; set; }
+        public string Language { get; set; } = "en";
     }
 
     public class AnalyzeSpendingAnomaliesCommandHandler : IRequestHandler<AnalyzeSpendingAnomaliesCommand, List<string>>
@@ -32,6 +33,8 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
         public async Task<List<string>> Handle(AnalyzeSpendingAnomaliesCommand request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.UserId!;
+            var normalizedLanguage = request.Language?.Trim().ToLowerInvariant() ?? "en";
+            var isTurkish = normalizedLanguage == "tr";
             var targetMonth = new DateTime(request.Year, request.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var generatedAlerts = new List<string>();
 
@@ -48,36 +51,42 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                             n.CreatedOn.Month == targetMonth.Month)
                 .ToListAsync(cancellationToken);
 
-            var signals = _heuristicRecommendationService.Evaluate(metrics);
-            foreach (var signal in signals)
+            var signalsEn = _heuristicRecommendationService.Evaluate(metrics, "en");
+            var signalsTr = _heuristicRecommendationService.Evaluate(metrics, "tr");
+            var trSignalsByKey = signalsTr.ToDictionary(GetSignalKey, s => s);
+
+            foreach (var signalEn in signalsEn)
             {
-                if (!signal.CategoryId.HasValue)
+                if (!signalEn.CategoryId.HasValue)
                 {
                     continue;
                 }
 
-                var msgEn = $"Alert: {signal.Evidence}";
-                var msgTr = $"Uyarı: {signal.Evidence}";
+                trSignalsByKey.TryGetValue(GetSignalKey(signalEn), out var signalTr);
+                var trEvidence = signalTr?.Evidence ?? signalEn.Evidence;
+
+                var msgEn = $"Alert: {signalEn.Evidence}";
+                var msgTr = $"Uyari: {trEvidence}";
                 var alreadySent = existingAlerts.Any(n =>
-                    n.RelatedEntityId == signal.CategoryId &&
-                    n.MessageEn.Contains(signal.ReasonCode));
+                    n.RelatedEntityId == signalEn.CategoryId &&
+                    n.MessageEn.Contains(signalEn.ReasonCode));
 
                 if (!alreadySent)
                 {
                     var notification = new Notification
                     {
                         UserId = userId,
-                        MessageEn = $"{msgEn} [{signal.ReasonCode}]",
-                        MessageTr = $"{msgTr} [{signal.ReasonCode}]",
+                        MessageEn = $"{msgEn} [{signalEn.ReasonCode}]",
+                        MessageTr = $"{msgTr} [{signalEn.ReasonCode}]",
                         Type = NotificationType.Alert,
                         CreatedOn = DateTime.UtcNow,
                         IsRead = false,
-                        RelatedEntityId = signal.CategoryId
+                        RelatedEntityId = signalEn.CategoryId
                     };
 
                     _context.Notifications.Add(notification);
                     existingAlerts.Add(notification);
-                    generatedAlerts.Add(msgEn);
+                    generatedAlerts.Add(isTurkish ? msgTr : msgEn);
                 }
             }
 
@@ -89,10 +98,13 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
             // If no new alerts were generated this run, return existing alerts for this month so the client sees them
             if (!generatedAlerts.Any() && existingAlerts.Any())
             {
-                return existingAlerts.Select(n => n.MessageEn).ToList();
+                return existingAlerts.Select(n => isTurkish ? n.MessageTr : n.MessageEn).ToList();
             }
 
             return generatedAlerts;
         }
+
+        private static string GetSignalKey(RecommendationSignal signal)
+            => $"{signal.ReasonCode}:{signal.CategoryId?.ToString() ?? "none"}";
     }
 }

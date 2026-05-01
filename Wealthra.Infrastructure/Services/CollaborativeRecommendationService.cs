@@ -17,15 +17,19 @@ namespace Wealthra.Infrastructure.Services
             _memoryCache = memoryCache;
         }
 
-        public async Task<List<CollaborativeSuggestion>> GetSuggestionsAsync(string userId, CancellationToken cancellationToken)
+        public async Task<List<CollaborativeSuggestion>> GetSuggestionsAsync(string userId, string language, CancellationToken cancellationToken)
         {
+            var normalizedLanguage = language?.Trim().ToLowerInvariant() ?? "en";
+            var isTurkish = normalizedLanguage == "tr";
             var categories = await _context.Categories.AsNoTracking().ToListAsync(cancellationToken);
             if (categories.Count == 0)
             {
                 return new List<CollaborativeSuggestion>();
             }
 
-            var categoryMap = categories.ToDictionary(c => c.Id, c => c.NameTr);
+            var categoryMap = categories.ToDictionary(
+                c => c.Id,
+                c => isTurkish ? c.NameTr : c.NameEn);
             var modelData = await _memoryCache.GetOrCreateAsync(CacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(4);
@@ -60,9 +64,11 @@ namespace Wealthra.Infrastructure.Services
                     suggestions.Add(new CollaborativeSuggestion
                     {
                         CategoryId = pair.Key,
-                        CategoryName = categoryMap.GetValueOrDefault(pair.Key, "Kategori"),
+                        CategoryName = categoryMap.GetValueOrDefault(pair.Key, isTurkish ? "Kategori" : "Category"),
                         Score = gap,
-                        Evidence = "Benzer gelir grubundaki kullanıcılar bu kategoriye daha fazla pay ayırıyor."
+                        Evidence = isTurkish
+                            ? "Benzer gelir grubundaki kullanicilar bu kategoriye daha fazla pay ayiriyor."
+                            : "Users in similar income groups allocate a higher share to this category."
                     });
                 }
             }

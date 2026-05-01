@@ -1,6 +1,7 @@
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Models;
 using Wealthra.Domain.Entities;
+using System.Globalization;
 
 namespace Wealthra.Application.Features.Recommendations.Services
 {
@@ -9,12 +10,18 @@ namespace Wealthra.Application.Features.Recommendations.Services
         private const decimal HighIncomeShareThreshold = 20m;
         private const decimal MonthOverMonthSpikeRatio = 1.5m;
 
-        public List<RecommendationSignal> Evaluate(IReadOnlyCollection<MonthlyCategoryMetric> metrics)
+        public List<RecommendationSignal> Evaluate(IReadOnlyCollection<MonthlyCategoryMetric> metrics, string language)
         {
             var signals = new List<RecommendationSignal>();
+            var normalizedLanguage = language?.Trim().ToLowerInvariant() ?? "en";
+            var isTurkish = normalizedLanguage == "tr";
 
             foreach (var metric in metrics)
             {
+                var categoryName = isTurkish && !string.IsNullOrWhiteSpace(metric.CategoryNameTr)
+                    ? metric.CategoryNameTr
+                    : metric.CategoryName;
+
                 if (metric.SpendPercentageOfIncome >= HighIncomeShareThreshold)
                 {
                     signals.Add(new RecommendationSignal
@@ -22,9 +29,11 @@ namespace Wealthra.Application.Features.Recommendations.Services
                         Source = "heuristic",
                         Severity = metric.SpendPercentageOfIncome > 30m ? "high" : "medium",
                         ReasonCode = "HIGH_INCOME_SHARE",
-                        Evidence = $"'{metric.CategoryName}' harcaman gelirinin %{Math.Round(metric.SpendPercentageOfIncome, 1)} seviyesinde.",
+                        Evidence = isTurkish
+                            ? $"'{categoryName}' harcaman gelirinin %{FormatPercentage(metric.SpendPercentageOfIncome)} seviyesinde."
+                            : $"Your spending in '{categoryName}' is at %{FormatPercentage(metric.SpendPercentageOfIncome)} of your income.",
                         CategoryId = metric.CategoryId,
-                        CategoryName = metric.CategoryName
+                        CategoryName = categoryName
                     });
                 }
 
@@ -42,14 +51,19 @@ namespace Wealthra.Application.Features.Recommendations.Services
                         Source = "heuristic",
                         Severity = increaseRatio > 2m ? "high" : "medium",
                         ReasonCode = "MONTH_OVER_MONTH_SPIKE",
-                        Evidence = $"'{metric.CategoryName}' harcaması geçen aya göre %{Math.Round(percentageIncrease, 1)} arttı.",
+                        Evidence = isTurkish
+                            ? $"'{categoryName}' harcamasi gecen aya gore %{FormatPercentage(percentageIncrease)} artti."
+                            : $"Spending in '{categoryName}' increased by %{FormatPercentage(percentageIncrease)} compared to last month.",
                         CategoryId = metric.CategoryId,
-                        CategoryName = metric.CategoryName
+                        CategoryName = categoryName
                     });
                 }
             }
 
             return signals;
         }
+
+        private static string FormatPercentage(decimal value)
+            => Math.Round(value, 1).ToString("0.#", CultureInfo.InvariantCulture);
     }
 }

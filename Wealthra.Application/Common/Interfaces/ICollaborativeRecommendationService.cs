@@ -4,6 +4,6 @@ namespace Wealthra.Application.Common.Interfaces
 {
     public interface ICollaborativeRecommendationService
     {
-        Task<List<CollaborativeSuggestion>> GetSuggestionsAsync(string userId, CancellationToken cancellationToken);
+        Task<List<CollaborativeSuggestion>> GetSuggestionsAsync(string userId, string language, CancellationToken cancellationToken);
     }
 }

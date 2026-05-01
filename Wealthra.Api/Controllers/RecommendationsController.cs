@@ -12,7 +12,7 @@ namespace Wealthra.Api.Controllers
     public class RecommendationsController : ApiControllerBase
     {
         [HttpPost("analyze")]
-        public async Task<ActionResult<List<string>>> AnalyzeAnomalies([FromQuery] int year, [FromQuery] int month)
+        public async Task<ActionResult<List<string>>> AnalyzeAnomalies([FromQuery] int year, [FromQuery] int month, [FromQuery] string language = "en")
         {
             if (year == 0 || month == 0)
             {
@@ -24,7 +24,8 @@ namespace Wealthra.Api.Controllers
             var command = new AnalyzeSpendingAnomaliesCommand
             {
                 Year = year,
-                Month = month
+                Month = month,
+                Language = language
             };
 
             var alerts = await Mediator.Send(command);
@@ -32,7 +33,7 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("personalized")]
-        public async Task<ActionResult<PersonalizedRecommendationResponse>> GetPersonalized([FromQuery] int year, [FromQuery] int month)
+        public async Task<ActionResult<PersonalizedRecommendationResponse>> GetPersonalized([FromQuery] int year, [FromQuery] int month, [FromQuery] string language = "en")
         {
             if (year == 0 || month == 0)
             {
@@ -44,7 +45,8 @@ namespace Wealthra.Api.Controllers
             var response = await Mediator.Send(new GetPersonalizedRecommendationsQuery
             {
                 Year = year,
-                Month = month
+                Month = month,
+                Language = language
             });
 
             return Ok(response);

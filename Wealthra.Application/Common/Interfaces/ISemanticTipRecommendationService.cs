@@ -4,6 +4,6 @@ namespace Wealthra.Application.Common.Interfaces
 {
     public interface ISemanticTipRecommendationService
     {
-        Task<List<SemanticTipResult>> GetTipsAsync(string userId, RecommendationSignal? topSignal, CancellationToken cancellationToken);
+        Task<List<SemanticTipResult>> GetTipsAsync(string userId, RecommendationSignal? topSignal, string language, CancellationToken cancellationToken);
     }
 }

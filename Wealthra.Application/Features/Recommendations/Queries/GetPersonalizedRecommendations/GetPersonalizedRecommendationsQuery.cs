@@ -10,6 +10,7 @@ namespace Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedR
     {
         public int Year { get; set; }
         public int Month { get; set; }
+        public string Language { get; set; } = "en";
     }
 
     public class GetPersonalizedRecommendationsQueryHandler : IRequestHandler<GetPersonalizedRecommendationsQuery, PersonalizedRecommendationResponse>
@@ -43,13 +44,14 @@ namespace Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedR
         public async Task<PersonalizedRecommendationResponse> Handle(GetPersonalizedRecommendationsQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.UserId!;
+            var normalizedLanguage = request.Language?.Trim().ToLowerInvariant() ?? "en";
             var targetMonth = new DateTime(request.Year, request.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
             var metrics = await _context.MonthlyCategoryMetrics
                 .Where(m => m.UserId == userId && m.Month == targetMonth)
                 .ToListAsync(cancellationToken);
 
-            var signals = _heuristicRecommendationService.Evaluate(metrics);
+            var signals = _heuristicRecommendationService.Evaluate(metrics, normalizedLanguage);
             var response = new PersonalizedRecommendationResponse
             {
                 Signals = signals
@@ -63,7 +65,7 @@ namespace Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedR
 
             if (canUseLayer2 && _recommendationFeatureFlags.EnableCollaborativeFiltering)
             {
-                response.CollaborativeSuggestions = await _collaborativeRecommendationService.GetSuggestionsAsync(userId, cancellationToken);
+                response.CollaborativeSuggestions = await _collaborativeRecommendationService.GetSuggestionsAsync(userId, normalizedLanguage, cancellationToken);
             }
 
             if (canUseLayer3 && _recommendationFeatureFlags.EnableSemanticTips)
@@ -72,7 +74,7 @@ namespace Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedR
                     .OrderByDescending(s => s.Severity == "high")
                     .ThenBy(s => s.ReasonCode)
                     .FirstOrDefault();
-                response.SemanticTips = await _semanticTipRecommendationService.GetTipsAsync(userId, topSignal, cancellationToken);
+                response.SemanticTips = await _semanticTipRecommendationService.GetTipsAsync(userId, topSignal, normalizedLanguage, cancellationToken);
             }
 
             return response;
