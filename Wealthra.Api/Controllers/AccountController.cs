@@ -45,15 +45,27 @@ namespace Wealthra.Api.Controllers
 
         [AllowAnonymous]
         [HttpPost("refresh-token")]
-        public async Task<ActionResult<AuthResponse>> RefreshToken()
+        public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] RefreshTokenRequest? bodyRequest)
         {
             var refreshToken = Request.Cookies["refresh-token"];
+            
+            // Fallback to body if cookie is missing (useful for some dev environments)
+            if (string.IsNullOrEmpty(refreshToken) && bodyRequest != null)
+            {
+                refreshToken = bodyRequest.RefreshToken;
+            }
 
             var accessToken = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            
+            // Fallback to body if header is missing
+            if (string.IsNullOrEmpty(accessToken) && bodyRequest != null)
+            {
+                accessToken = bodyRequest.Token;
+            }
 
             if (string.IsNullOrEmpty(refreshToken) || string.IsNullOrEmpty(accessToken))
             {
-                return Unauthorized(new { message = "Tokens are missing" });
+                return Unauthorized(new { message = "Tokens are missing. Ensure cookies are enabled and sent, or provide tokens in the request body." });
             }
 
             var command = new RefreshTokenCommand(accessToken, refreshToken);
@@ -63,6 +75,8 @@ namespace Wealthra.Api.Controllers
 
             return Ok(new { response.Id, response.Email, response.Token });
         }
+
+        public record RefreshTokenRequest(string Token, string RefreshToken);
 
         [AllowAnonymous]
         [HttpPost("forgot-password")]
@@ -109,7 +123,7 @@ namespace Wealthra.Api.Controllers
                 HttpOnly = true,
                 Expires = expires,
                 Secure = true,
-                SameSite = SameSiteMode.Lax,
+                SameSite = SameSiteMode.None,
                 Path = "/"
             };
 
