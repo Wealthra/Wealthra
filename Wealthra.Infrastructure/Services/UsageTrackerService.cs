@@ -4,6 +4,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Domain;
+using Wealthra.Domain.Entities;
 using Wealthra.Infrastructure.Identity.Models;
 
 namespace Wealthra.Infrastructure.Services
@@ -116,25 +118,16 @@ namespace Wealthra.Infrastructure.Services
 
         private async Task<PlanLimits> ResolvePlanLimitsAsync(ApplicationUser user, CancellationToken cancellationToken)
         {
+            SubscriptionPlan? activePlan = null;
             if (user.SubscriptionPlanId.HasValue)
             {
-                var plan = await _applicationDbContext.SubscriptionPlans
+                activePlan = await _applicationDbContext.SubscriptionPlans
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.Id == user.SubscriptionPlanId.Value && x.IsActive, cancellationToken);
-
-                if (plan != null)
-                {
-                    return new PlanLimits(plan.MonthlyOcrLimit, plan.MonthlySttLimit);
-                }
             }
 
-            return user.SubscriptionTier switch
-            {
-                Wealthra.Domain.Enums.SubscriptionTier.Free => new PlanLimits(0, 0),
-                Wealthra.Domain.Enums.SubscriptionTier.Basic => new PlanLimits(40, 30),
-                Wealthra.Domain.Enums.SubscriptionTier.Limitless => new PlanLimits(int.MaxValue, int.MaxValue),
-                _ => new PlanLimits(0, 0)
-            };
+            var (ocr, stt) = SubscriptionUsageLimits.ResolveForUser(user.SubscriptionTier, activePlan);
+            return new PlanLimits(ocr, stt);
         }
     }
 }

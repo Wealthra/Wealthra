@@ -74,7 +74,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
         {
             _identityServiceMock
                 .Setup(x => x.GetUserUsageAsync(_userId))
-                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Free, null, null, 0, 0, null));
+                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Free, null, null, 0, 0, 0, 0, null));
 
             var handler = BuildHandler();
             var result = await handler.Handle(new GetPersonalizedRecommendationsQuery { Year = 2026, Month = 4 }, CancellationToken.None);
@@ -91,7 +91,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
         {
             _identityServiceMock
                 .Setup(x => x.GetUserUsageAsync(_userId))
-                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Basic, null, null, 0, 0, null));
+                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Basic, null, null, 0, 0, 40, 30, null));
 
             var handler = BuildHandler();
             var result = await handler.Handle(new GetPersonalizedRecommendationsQuery { Year = 2026, Month = 4 }, CancellationToken.None);
@@ -108,7 +108,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
         {
             _identityServiceMock
                 .Setup(x => x.GetUserUsageAsync(_userId))
-                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Limitless, null, null, 0, 0, null));
+                .ReturnsAsync(new UserUsageDto(_userId, "a@b.com", "A", "B", SubscriptionTier.Limitless, null, null, 0, 0, null, null, null));
 
             var handler = BuildHandler();
             var result = await handler.Handle(new GetPersonalizedRecommendationsQuery { Year = 2026, Month = 4 }, CancellationToken.None);

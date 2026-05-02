@@ -9,6 +9,7 @@ using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Admin.Models;
 using Wealthra.Application.Features.Identity.Models;
+using Wealthra.Domain;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
 using Wealthra.Infrastructure.Identity.Models;
@@ -257,18 +258,7 @@ namespace Wealthra.Infrastructure.Identity.Services
                 .FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null) return null;
 
-            return new UserUsageDto(
-                user.Id,
-                user.Email ?? string.Empty,
-                user.FirstName,
-                user.LastName,
-                user.SubscriptionTier,
-                user.SubscriptionPlanId,
-                user.SubscriptionPlan?.Name,
-                user.OcrRequestsThisMonth,
-                user.SttRequestsThisMonth,
-                user.LastUsageActivityDate
-            );
+            return MapUserToUsageDto(user);
         }
 
         public async Task<System.Collections.Generic.List<UserUsageDto>> SearchUserUsagesAsync(string? email, string? name)
@@ -289,18 +279,7 @@ namespace Wealthra.Infrastructure.Identity.Services
                 .Take(50)
                 .ToListAsync();
 
-            return limitRows.Select(user => new UserUsageDto(
-                user.Id,
-                user.Email ?? string.Empty,
-                user.FirstName,
-                user.LastName,
-                user.SubscriptionTier,
-                user.SubscriptionPlanId,
-                user.SubscriptionPlan?.Name,
-                user.OcrRequestsThisMonth,
-                user.SttRequestsThisMonth,
-                user.LastUsageActivityDate
-            )).ToList();
+            return limitRows.Select(MapUserToUsageDto).ToList();
         }
 
         public async Task<System.Collections.Generic.List<UserUsageDto>> GetUsersByPlanAsync(int planId)
@@ -312,7 +291,22 @@ namespace Wealthra.Infrastructure.Identity.Services
                 .Take(100)
                 .ToListAsync();
 
-            return users.Select(user => new UserUsageDto(
+            return users.Select(MapUserToUsageDto).ToList();
+        }
+
+        private static UserUsageDto MapUserToUsageDto(ApplicationUser user)
+        {
+            SubscriptionPlan? effectivePlan = null;
+            if (user.SubscriptionPlanId.HasValue &&
+                user.SubscriptionPlan != null &&
+                user.SubscriptionPlan.IsActive)
+            {
+                effectivePlan = user.SubscriptionPlan;
+            }
+
+            var (ocrLim, sttLim) = SubscriptionUsageLimits.ResolveForUser(user.SubscriptionTier, effectivePlan);
+
+            return new UserUsageDto(
                 user.Id,
                 user.Email ?? string.Empty,
                 user.FirstName,
@@ -322,8 +316,9 @@ namespace Wealthra.Infrastructure.Identity.Services
                 user.SubscriptionPlan?.Name,
                 user.OcrRequestsThisMonth,
                 user.SttRequestsThisMonth,
-                user.LastUsageActivityDate
-            )).ToList();
+                ocrLim == int.MaxValue ? null : ocrLim,
+                sttLim == int.MaxValue ? null : sttLim,
+                user.LastUsageActivityDate);
         }
 
         public async Task<AppUsageSummaryDto> GetAppUsageSummaryAsync()
