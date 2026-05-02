@@ -1,4 +1,4 @@
-﻿using FluentValidation.Results;
+using FluentValidation.Results;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +18,7 @@ namespace Wealthra.Application.Common.Exceptions
         public ValidationException(Dictionary<string, string[]> dictionary)
             : base("One or more validation failures have occurred.")
         {
-            Errors = new Dictionary<string, string[]>();
+            Errors = dictionary;
         }
 
         public ValidationException(IEnumerable<ValidationFailure> failures)
