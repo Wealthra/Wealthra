@@ -516,6 +516,24 @@ namespace Wealthra.Infrastructure.Identity.Services
             return Result.Success();
         }
 
+        public async Task<Result> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+        {
+            var user = await _userManager.Users
+                .Include(u => u.RefreshTokens)
+                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == refreshToken), cancellationToken);
+
+            if (user == null) return Result.Failure(new[] { "Token not found" });
+
+            var storedToken = user.RefreshTokens.Single(x => x.Token == refreshToken);
+            if (storedToken.Revoked == null)
+            {
+                storedToken.Revoked = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+            }
+
+            return Result.Success();
+        }
+
         public async Task<Result> AdminSetPasswordAsync(string targetUserId, string newPassword, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(targetUserId);

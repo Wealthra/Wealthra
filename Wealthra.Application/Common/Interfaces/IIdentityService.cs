@@ -31,6 +31,7 @@ namespace Wealthra.Application.Common.Interfaces
         Task<Result> SetUserLockoutAsync(string actorUserId, string targetUserId, bool lockout, DateTimeOffset? lockoutEnd, System.Threading.CancellationToken cancellationToken = default);
         Task<Result> SetUserRolesAsync(string actorUserId, string targetUserId, IReadOnlyList<string> roles, System.Threading.CancellationToken cancellationToken = default);
         Task<Result> RevokeAllRefreshTokensAsync(string targetUserId, System.Threading.CancellationToken cancellationToken = default);
+        Task<Result> RevokeRefreshTokenAsync(string refreshToken, System.Threading.CancellationToken cancellationToken = default);
         Task<Result> AdminSetPasswordAsync(string targetUserId, string newPassword, System.Threading.CancellationToken cancellationToken = default);
 
         Task<RevenueAnalyticsDto> GetRevenueAnalyticsAsync(System.Threading.CancellationToken cancellationToken = default);

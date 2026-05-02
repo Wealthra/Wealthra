@@ -90,8 +90,14 @@ namespace Wealthra.Api.Controllers
 
         [AllowAnonymous]
         [HttpPost("revoke-token")]
-        public IActionResult RevokeToken()
+        public async Task<IActionResult> RevokeToken()
         {
+            var refreshToken = Request.Cookies["refresh-token"];
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                await Mediator.Send(new Wealthra.Application.Features.Identity.Commands.RevokeToken.RevokeRefreshTokenCommand(refreshToken));
+            }
+
             Response.Cookies.Delete("refresh-token");
             return Ok(new { message = "Token revoked" });
         }
