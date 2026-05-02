@@ -1,10 +1,11 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using Wealthra.Application.Common.Interfaces;
-using Wealthra.Application.Features.Expenses.Models;
 using MediatR;
+using Wealthra.Application.Common.Exceptions;
+using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
+using Wealthra.Application.Features.Expenses.Models;
 
 namespace Wealthra.Infrastructure.Services
 {
@@ -13,12 +14,17 @@ namespace Wealthra.Infrastructure.Services
         private readonly HttpClient _ocrClient;
         private readonly HttpClient _sttClient;
         private readonly IMediator _mediator;
+        private readonly IUsageTrackerService _usageTrackerService;
 
-        public ExpenseExtractionService(IHttpClientFactory httpClientFactory, IMediator mediator)
+        public ExpenseExtractionService(
+            IHttpClientFactory httpClientFactory,
+            IMediator mediator,
+            IUsageTrackerService usageTrackerService)
         {
             _ocrClient = httpClientFactory.CreateClient("OcrClient");
             _sttClient = httpClientFactory.CreateClient("SttClient");
             _mediator = mediator;
+            _usageTrackerService = usageTrackerService;
         }
 
         public async Task<IReadOnlyList<ExtractedExpenseDto>> ExtractFromImageAsync(
@@ -26,8 +32,22 @@ namespace Wealthra.Infrastructure.Services
             string fileName,
             CancellationToken cancellationToken = default)
         {
+            if (!await _usageTrackerService.CanUseOcrAsync(cancellationToken))
+            {
+                throw new ForbiddenAccessException(
+                    "OCR quota exceeded or feature not available for your current tier.");
+            }
+
             var categories = await GetCategoriesStringAsync(cancellationToken);
-            return await ExtractExpensesAsync(_ocrClient, "extract-expenses-from-image", fileStream, fileName, categories, cancellationToken);
+            var result = await ExtractExpensesAsync(
+                _ocrClient,
+                "extract-expenses-from-image",
+                fileStream,
+                fileName,
+                categories,
+                cancellationToken);
+            await _usageTrackerService.IncrementOcrAsync(cancellationToken);
+            return result;
         }
 
         public async Task<IReadOnlyList<ExtractedExpenseDto>> ExtractFromAudioAsync(
@@ -35,8 +55,22 @@ namespace Wealthra.Infrastructure.Services
             string fileName,
             CancellationToken cancellationToken = default)
         {
+            if (!await _usageTrackerService.CanUseSttAsync(cancellationToken))
+            {
+                throw new ForbiddenAccessException(
+                    "STT quota exceeded or feature not available for your current tier.");
+            }
+
             var categories = await GetCategoriesStringAsync(cancellationToken);
-            return await ExtractExpensesAsync(_sttClient, "extract-expenses-from-audio", fileStream, fileName, categories, cancellationToken);
+            var result = await ExtractExpensesAsync(
+                _sttClient,
+                "extract-expenses-from-audio",
+                fileStream,
+                fileName,
+                categories,
+                cancellationToken);
+            await _usageTrackerService.IncrementSttAsync(cancellationToken);
+            return result;
         }
 
         private static async Task<IReadOnlyList<ExtractedExpenseDto>> ExtractExpensesAsync(

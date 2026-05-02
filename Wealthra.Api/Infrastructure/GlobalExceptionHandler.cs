@@ -51,6 +51,12 @@ namespace Wealthra.Api.Infrastructure
                 problemDetails.Status = StatusCodes.Status404NotFound;
                 problemDetails.Detail = notFoundEx.Message;
             }
+            else if (exception is ForbiddenAccessException forbiddenEx)
+            {
+                problemDetails.Title = "Forbidden";
+                problemDetails.Status = StatusCodes.Status403Forbidden;
+                problemDetails.Detail = forbiddenEx.Message;
+            }
             else
             {
                 // Fallback for unhandled errors (500)
