@@ -23,6 +23,7 @@ RUN apt-get update \
     fontconfig \
     libfreetype6 \
     fonts-liberation \
+    libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/publish .

@@ -76,11 +76,19 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           JWT_SETTINGS_SECRET: ${{ secrets.JWT_SETTINGS_SECRET }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          Smtp__Host: ${{ secrets.SMTP_HOST }}
+          Smtp__Port: ${{ secrets.SMTP_PORT }}
+          Smtp__UseSsl: ${{ secrets.SMTP_USE_SSL }}
+          Smtp__Tls: ${{ secrets.SMTP_TLS }}
+          Smtp__Username: ${{ secrets.SMTP_USERNAME }}
+          Smtp__Password: ${{ secrets.SMTP_PASSWORD }}
+          Smtp__FromEmail: ${{ secrets.SMTP_FROM_EMAIL }}
+          Smtp__FromName: ${{ secrets.SMTP_FROM_NAME }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: POSTGRES_PASSWORD,JWT_SETTINGS_SECRET,GROQ_API_KEY
+          envs: POSTGRES_PASSWORD,JWT_SETTINGS_SECRET,GROQ_API_KEY,Smtp__Host,Smtp__Port,Smtp__UseSsl,Smtp__Tls,Smtp__Username,Smtp__Password,Smtp__FromEmail,Smtp__FromName
           script: |
             set -euo pipefail
             cd /root/wealthra-backend
@@ -95,6 +103,14 @@ jobs:
               "WEALTHRA_OCR_IMAGE=${{ env.OCR_IMAGE }}" \
               "WEALTHRA_STT_IMAGE=${{ env.STT_IMAGE }}" \
               "WEALTHRA_COPILOT_IMAGE=${{ env.COPILOT_IMAGE }}" \
+              "Smtp__Host=${Smtp__Host:-}" \
+              "Smtp__Port=${Smtp__Port:-587}" \
+              "Smtp__UseSsl=${Smtp__UseSsl:-false}" \
+              "Smtp__Tls=${Smtp__Tls:-}" \
+              "Smtp__Username=${Smtp__Username:-}" \
+              "Smtp__Password=${Smtp__Password:-}" \
+              "Smtp__FromEmail=${Smtp__FromEmail:-}" \
+              "Smtp__FromName=${Smtp__FromName:-Wealthra}" \
               > .env
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
             docker compose pull api ocr stt copilot

@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Security.Claims;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +59,20 @@ namespace Wealthra.Api.Infrastructure
                 problemDetails.Status = StatusCodes.Status403Forbidden;
                 problemDetails.Detail = forbiddenEx.Message;
             }
+            else if (exception is AuthenticationException mailAuthEx)
+            {
+                problemDetails.Title = "SMTP authentication failed";
+                problemDetails.Status = StatusCodes.Status502BadGateway;
+                problemDetails.Detail = TruncateForClient(mailAuthEx.Message);
+                _logger.LogWarning(mailAuthEx, "SMTP authentication rejected by mail server.");
+            }
+            else if (exception is SmtpCommandException smtpCmdEx)
+            {
+                problemDetails.Title = "SMTP error";
+                problemDetails.Status = StatusCodes.Status502BadGateway;
+                problemDetails.Detail = TruncateForClient(smtpCmdEx.Message);
+                _logger.LogWarning(smtpCmdEx, "SMTP command failed.");
+            }
             else
             {
                 // Fallback for unhandled errors (500)
@@ -102,6 +118,13 @@ namespace Wealthra.Api.Infrastructure
                 .WriteAsJsonAsync(problemDetails, cancellationToken);
 
             return true;
+        }
+
+        private static string TruncateForClient(string message, int maxLength = 500)
+        {
+            if (string.IsNullOrEmpty(message)) return "The mail server rejected the request.";
+            var t = message.Trim();
+            return t.Length <= maxLength ? t : t[..maxLength] + "…";
         }
     }
 }
