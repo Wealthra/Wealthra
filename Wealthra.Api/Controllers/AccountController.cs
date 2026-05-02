@@ -47,12 +47,11 @@ namespace Wealthra.Api.Controllers
         [HttpPost("refresh-token")]
         public async Task<ActionResult<AuthResponse>> RefreshToken([FromBody] RefreshTokenRequest? bodyRequest)
         {
-            var refreshToken = Request.Cookies["refresh-token"];
-            
-            // Fallback to body if cookie is missing (useful for some dev environments)
-            if (string.IsNullOrEmpty(refreshToken) && bodyRequest != null)
+            // Prioritize body if provided (frontend knows its state best), fallback to cookie
+            var refreshToken = bodyRequest?.RefreshToken;
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                refreshToken = bodyRequest.RefreshToken;
+                refreshToken = Request.Cookies["refresh-token"];
             }
 
             var accessToken = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");

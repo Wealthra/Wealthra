@@ -475,7 +475,8 @@ namespace Wealthra.Infrastructure.Identity.Services
                 Roles.Support.ToString(),
                 Roles.Finance.ToString(),
                 Roles.Admin.ToString(),
-                Roles.SuperAdmin.ToString()
+                Roles.SuperAdmin.ToString(),
+                Roles.Moderator.ToString()
             };
 
             if (normalized.Any(r => !allowed.Contains(r)))

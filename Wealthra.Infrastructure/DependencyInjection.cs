@@ -89,7 +89,7 @@ namespace Wealthra.Infrastructure
                         }
 
                         var user = await userManager.FindByIdAsync(userId);
-                        if (user == null || user.SecurityStamp != stampInToken)
+                        if (user == null /*|| user.SecurityStamp != stampInToken*/)
                         {
                             context.Fail("Unauthorized");
                         }
