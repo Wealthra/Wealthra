@@ -173,6 +173,14 @@ public class PlatformEndpointsTests : IClassFixture<WealthraApiFactory>
             rate = 34.5m,
         });
         Assert.Equal(HttpStatusCode.OK, upsert.StatusCode);
+        var rateId = await upsert.Content.ReadFromJsonAsync<int>();
+        Assert.True(rateId > 0);
+
+        var update = await _client.PutAsJsonAsync($"/api/admin/fx/manual-rates/{rateId}", new { rate = 35.1m });
+        Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
+
+        var delete = await _client.DeleteAsync($"/api/admin/fx/manual-rates/{rateId}");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
         var getOrder = await _client.GetAsync("/api/admin/fx/provider-order");
         Assert.Equal(HttpStatusCode.OK, getOrder.StatusCode);
