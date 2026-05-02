@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Domain.Entities;
 
@@ -40,11 +41,16 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, int>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public CreateGoalCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public CreateGoalCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<int> Handle(CreateGoalCommand request, CancellationToken cancellationToken)
@@ -60,6 +66,8 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, int>
 
         _context.Goals.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         return entity.Id;
     }

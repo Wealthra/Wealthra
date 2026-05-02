@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.FinancialSummary.Models;
 
@@ -40,7 +41,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
     {
         var userId = _currentUserService.UserId ?? string.Empty;
         var targetCurr = request.TargetCurrency?.ToUpperInvariant();
-        var cacheKey = targetCurr != null ? $"dashboard_web_{userId}_{targetCurr}" : $"dashboard_web_{userId}";
+        var cacheKey = FinancialDashboardCache.DashboardWebKey(userId, targetCurr);
         var cached = await _cacheService.GetAsync<DashboardWebDto>(cacheKey, cancellationToken);
         if (cached != null)
         {
@@ -195,6 +196,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         var recentExpenseRows = await _context.Expenses
             .Where(e => e.CreatedBy == userId)
             .OrderByDescending(e => e.TransactionDate)
+            .ThenByDescending(e => e.Id)
             .Take(5)
             .Select(e => new RecentTransactionAmount(
                 e.Id,
@@ -211,6 +213,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         var recentIncomeRows = await _context.Incomes
             .Where(i => i.CreatedBy == userId)
             .OrderByDescending(i => i.TransactionDate)
+            .ThenByDescending(i => i.Id)
             .Take(5)
             .Select(i => new RecentTransactionAmount(
                 i.Id,
@@ -227,6 +230,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         var recentTransactions = recentExpenseRows
             .Concat(recentIncomeRows)
             .OrderByDescending(t => t.TransactionDate)
+            .ThenByDescending(t => t.Id)
             .Take(5)
             .ToList();
 

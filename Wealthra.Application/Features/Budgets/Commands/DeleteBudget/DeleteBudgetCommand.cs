@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 
@@ -10,10 +11,12 @@ public record DeleteBudgetCommand(int Id) : IRequest<Unit>;
 public class DeleteBudgetCommandHandler : IRequestHandler<DeleteBudgetCommand, Unit>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICacheService _cacheService;
 
-    public DeleteBudgetCommandHandler(IApplicationDbContext context)
+    public DeleteBudgetCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
         _context = context;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(DeleteBudgetCommand request, CancellationToken cancellationToken)
@@ -28,6 +31,8 @@ public class DeleteBudgetCommandHandler : IRequestHandler<DeleteBudgetCommand, U
 
         _context.Budgets.Remove(budget);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, budget.CreatedBy, cancellationToken);
 
         return Unit.Value;
     }

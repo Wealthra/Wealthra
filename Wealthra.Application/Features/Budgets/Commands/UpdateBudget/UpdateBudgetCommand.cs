@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 
@@ -28,10 +29,12 @@ public class UpdateBudgetCommandValidator : AbstractValidator<UpdateBudgetComman
 public class UpdateBudgetCommandHandler : IRequestHandler<UpdateBudgetCommand, Unit>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICacheService _cacheService;
 
-    public UpdateBudgetCommandHandler(IApplicationDbContext context)
+    public UpdateBudgetCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
         _context = context;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(UpdateBudgetCommand request, CancellationToken cancellationToken)
@@ -48,6 +51,8 @@ public class UpdateBudgetCommandHandler : IRequestHandler<UpdateBudgetCommand, U
         budget.UpdateLimit(request.LimitAmount);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, budget.CreatedBy, cancellationToken);
 
         return Unit.Value;
     }

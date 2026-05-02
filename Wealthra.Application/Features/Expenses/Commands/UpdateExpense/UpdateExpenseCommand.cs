@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
@@ -43,13 +44,20 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
     private readonly ICurrentUserService _currentUserService;
     private readonly ISender _sender;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly ICacheService _cacheService;
 
-    public UpdateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender, ICurrencyExchangeService currencyService)
+    public UpdateExpenseCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ISender sender,
+        ICurrencyExchangeService currencyService,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _sender = sender;
         _currencyService = currencyService;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(UpdateExpenseCommand request, CancellationToken cancellationToken)
@@ -114,6 +122,8 @@ public class UpdateExpenseCommandHandler : IRequestHandler<UpdateExpenseCommand,
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         // Trigger Anomaly Analysis for this month
         await _sender.Send(new AnalyzeSpendingAnomaliesCommand 

@@ -12,14 +12,16 @@ namespace Wealthra.Application.UnitTests.Features.Goals.Commands.DeleteGoal;
 public class DeleteGoalCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly DeleteGoalCommandHandler _handler;
 
     public DeleteGoalCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new DeleteGoalCommandHandler(_mockContext.Object);
+        _handler = new DeleteGoalCommandHandler(_mockContext.Object, _mockCacheService.Object);
     }
 
     [Fact]

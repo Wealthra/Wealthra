@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 
@@ -41,10 +42,17 @@ public class UpdateIncomeCommandValidator : AbstractValidator<UpdateIncomeComman
 public class UpdateIncomeCommandHandler : IRequestHandler<UpdateIncomeCommand, Unit>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public UpdateIncomeCommandHandler(IApplicationDbContext context)
+    public UpdateIncomeCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _context = context;
+        _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(UpdateIncomeCommand request, CancellationToken cancellationToken)
@@ -65,6 +73,8 @@ public class UpdateIncomeCommandHandler : IRequestHandler<UpdateIncomeCommand, U
         income.Currency = request.Currency ?? "TRY";
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         return Unit.Value;
     }

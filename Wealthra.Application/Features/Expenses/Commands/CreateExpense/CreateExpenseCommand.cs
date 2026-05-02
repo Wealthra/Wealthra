@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
 using Wealthra.Domain.Entities;
@@ -47,13 +47,20 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
         private readonly ICurrentUserService _currentUserService;
         private readonly ISender _sender;
         private readonly ICurrencyExchangeService _currencyService;
+        private readonly ICacheService _cacheService;
 
-        public CreateExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender, ICurrencyExchangeService currencyService)
+        public CreateExpenseCommandHandler(
+            IApplicationDbContext context,
+            ICurrentUserService currentUserService,
+            ISender sender,
+            ICurrencyExchangeService currencyService,
+            ICacheService cacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _sender = sender;
             _currencyService = currencyService;
+            _cacheService = cacheService;
         }
 
         public async Task<int> Handle(CreateExpenseCommand request, CancellationToken cancellationToken)
@@ -102,6 +109,8 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
 
             // D. Save (Infrastructure dispatches Domain Events here)
             await _context.SaveChangesAsync(cancellationToken);
+
+            await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
             // E. Trigger Anomaly Analysis in the background for this month
             await _sender.Send(new AnalyzeSpendingAnomaliesCommand 

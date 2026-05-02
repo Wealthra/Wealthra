@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Domain.Entities;
 
@@ -31,11 +32,16 @@ public class CreateBudgetCommandHandler : IRequestHandler<CreateBudgetCommand, i
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public CreateBudgetCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public CreateBudgetCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<int> Handle(CreateBudgetCommand request, CancellationToken cancellationToken)
@@ -63,6 +69,8 @@ public class CreateBudgetCommandHandler : IRequestHandler<CreateBudgetCommand, i
 
         _context.Budgets.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         return entity.Id;
     }

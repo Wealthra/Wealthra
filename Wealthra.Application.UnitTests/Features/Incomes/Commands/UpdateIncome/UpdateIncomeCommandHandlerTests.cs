@@ -12,14 +12,21 @@ namespace Wealthra.Application.UnitTests.Features.Incomes.Commands.UpdateIncome;
 public class UpdateIncomeCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly UpdateIncomeCommandHandler _handler;
 
     public UpdateIncomeCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new UpdateIncomeCommandHandler(_mockContext.Object);
+        _handler = new UpdateIncomeCommandHandler(
+            _mockContext.Object,
+            _mockCurrentUserService.Object,
+            _mockCacheService.Object);
     }
 
     [Fact]

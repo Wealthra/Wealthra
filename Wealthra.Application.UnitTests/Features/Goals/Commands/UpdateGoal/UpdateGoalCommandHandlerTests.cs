@@ -12,14 +12,16 @@ namespace Wealthra.Application.UnitTests.Features.Goals.Commands.UpdateGoal;
 public class UpdateGoalCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly UpdateGoalCommandHandler _handler;
 
     public UpdateGoalCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new UpdateGoalCommandHandler(_mockContext.Object);
+        _handler = new UpdateGoalCommandHandler(_mockContext.Object, _mockCacheService.Object);
     }
 
     [Fact]

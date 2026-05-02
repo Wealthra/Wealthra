@@ -13,6 +13,7 @@ public class CreateIncomeCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly CreateIncomeCommandHandler _handler;
 
@@ -20,8 +21,12 @@ public class CreateIncomeCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new CreateIncomeCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new CreateIncomeCommandHandler(
+            _mockContext.Object,
+            _mockICurrentUserService.Object,
+            _mockCacheService.Object);
     }
 
     [Fact]

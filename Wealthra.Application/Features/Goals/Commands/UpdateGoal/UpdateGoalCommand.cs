@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 
@@ -44,10 +45,12 @@ public class UpdateGoalCommandValidator : AbstractValidator<UpdateGoalCommand>
 public class UpdateGoalCommandHandler : IRequestHandler<UpdateGoalCommand, Unit>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICacheService _cacheService;
 
-    public UpdateGoalCommandHandler(IApplicationDbContext context)
+    public UpdateGoalCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
         _context = context;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(UpdateGoalCommand request, CancellationToken cancellationToken)
@@ -67,6 +70,8 @@ public class UpdateGoalCommandHandler : IRequestHandler<UpdateGoalCommand, Unit>
         goal.Currency = request.Currency ?? "TRY";
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, goal.CreatedBy, cancellationToken);
 
         return Unit.Value;
     }

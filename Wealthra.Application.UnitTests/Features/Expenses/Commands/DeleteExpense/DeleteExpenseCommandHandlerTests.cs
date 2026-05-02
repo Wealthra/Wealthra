@@ -15,6 +15,7 @@ public class DeleteExpenseCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
     private readonly Mock<ISender> _mockSender;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly DeleteExpenseCommandHandler _handler;
 
@@ -23,8 +24,13 @@ public class DeleteExpenseCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
         _mockSender = new Mock<ISender>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new DeleteExpenseCommandHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockSender.Object);
+        _handler = new DeleteExpenseCommandHandler(
+            _mockContext.Object,
+            _mockICurrentUserService.Object,
+            _mockSender.Object,
+            _mockCacheService.Object);
     }
 
     [Fact]

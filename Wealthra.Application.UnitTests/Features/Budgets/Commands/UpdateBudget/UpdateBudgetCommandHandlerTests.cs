@@ -12,14 +12,16 @@ namespace Wealthra.Application.UnitTests.Features.Budgets.Commands.UpdateBudget;
 public class UpdateBudgetCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly UpdateBudgetCommandHandler _handler;
 
     public UpdateBudgetCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new UpdateBudgetCommandHandler(_mockContext.Object);
+        _handler = new UpdateBudgetCommandHandler(_mockContext.Object, _mockCacheService.Object);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.FinancialSummary.Models;
 
@@ -37,7 +38,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
     public async Task<FinancialDashboardDto> Handle(GetFinancialDashboardQuery request, CancellationToken cancellationToken)
     {
         var targetCurr = request.TargetCurrency?.ToUpperInvariant();
-        var cacheKey = targetCurr != null ? $"dashboard_{_currentUserService.UserId}_{targetCurr}" : $"dashboard_{_currentUserService.UserId}";
+        var cacheKey = FinancialDashboardCache.DashboardKey(_currentUserService.UserId!, targetCurr);
 
         // Try to get from cache first
         // Note: For simplicity here, we might invalidate cache differently if we change preferred currency.
@@ -84,6 +85,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             .Include(e => e.Category)
             .Where(e => e.CreatedBy == _currentUserService.UserId)
             .OrderByDescending(e => e.TransactionDate)
+            .ThenByDescending(e => e.Id)
             .Take(5)
             .Select(e => new
             {
@@ -100,6 +102,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         var recentIncomes = await _context.Incomes
             .Where(i => i.CreatedBy == _currentUserService.UserId)
             .OrderByDescending(i => i.TransactionDate)
+            .ThenByDescending(i => i.Id)
             .Take(5)
             .Select(i => new
             {
@@ -116,6 +119,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         var recentTransactionsRaw = recentExpenses
             .Concat(recentIncomes)
             .OrderByDescending(t => t.TransactionDate)
+            .ThenByDescending(t => t.Id)
             .Take(5)
             .ToList();
 

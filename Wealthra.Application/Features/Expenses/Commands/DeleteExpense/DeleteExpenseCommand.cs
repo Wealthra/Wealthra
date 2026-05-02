@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
@@ -13,12 +14,18 @@ public class DeleteExpenseCommandHandler : IRequestHandler<DeleteExpenseCommand,
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISender _sender;
+    private readonly ICacheService _cacheService;
 
-    public DeleteExpenseCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISender sender)
+    public DeleteExpenseCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ISender sender,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _sender = sender;
+        _cacheService = cacheService;
     }
 
     public async Task<Unit> Handle(DeleteExpenseCommand request, CancellationToken cancellationToken)
@@ -42,6 +49,8 @@ public class DeleteExpenseCommandHandler : IRequestHandler<DeleteExpenseCommand,
 
         _context.Expenses.Remove(expense);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         // Trigger Anomaly Analysis for this month
         await _sender.Send(new AnalyzeSpendingAnomaliesCommand 

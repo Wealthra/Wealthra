@@ -13,6 +13,7 @@ public class CreateBudgetCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly CreateBudgetCommandHandler _handler;
 
@@ -20,8 +21,12 @@ public class CreateBudgetCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new CreateBudgetCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new CreateBudgetCommandHandler(
+            _mockContext.Object,
+            _mockICurrentUserService.Object,
+            _mockCacheService.Object);
     }
 
     [Fact]

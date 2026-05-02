@@ -13,6 +13,7 @@ public class CreateGoalCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ICacheService> _mockCacheService;
 
     private readonly CreateGoalCommandHandler _handler;
 
@@ -20,8 +21,12 @@ public class CreateGoalCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockCacheService = new Mock<ICacheService>();
 
-        _handler = new CreateGoalCommandHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new CreateGoalCommandHandler(
+            _mockContext.Object,
+            _mockICurrentUserService.Object,
+            _mockCacheService.Object);
     }
 
     [Fact]

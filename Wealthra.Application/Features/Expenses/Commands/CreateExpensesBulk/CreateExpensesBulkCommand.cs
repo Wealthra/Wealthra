@@ -4,6 +4,7 @@ using System.Linq;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies;
 using Wealthra.Domain.Entities;
@@ -58,17 +59,20 @@ public class CreateExpensesBulkCommandHandler : IRequestHandler<CreateExpensesBu
     private readonly ICurrentUserService _currentUserService;
     private readonly ISender _sender;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly ICacheService _cacheService;
 
     public CreateExpensesBulkCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         ISender sender,
-        ICurrencyExchangeService currencyService)
+        ICurrencyExchangeService currencyService,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _sender = sender;
         _currencyService = currencyService;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<int>> Handle(CreateExpensesBulkCommand request, CancellationToken cancellationToken)
@@ -123,6 +127,8 @@ public class CreateExpensesBulkCommandHandler : IRequestHandler<CreateExpensesBu
 
         _context.Expenses.AddRange(entities);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, userId!, cancellationToken);
 
         var distinctMonths = request.Items
             .Select(i => (Year: i.TransactionDate.Year, Month: i.TransactionDate.Month))

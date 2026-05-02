@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Domain.Entities;
 
@@ -37,11 +38,16 @@ public class CreateIncomeCommandHandler : IRequestHandler<CreateIncomeCommand, i
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public CreateIncomeCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public CreateIncomeCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<int> Handle(CreateIncomeCommand request, CancellationToken cancellationToken)
@@ -58,6 +64,8 @@ public class CreateIncomeCommandHandler : IRequestHandler<CreateIncomeCommand, i
 
         _context.Incomes.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await FinancialDashboardCache.InvalidateForUserAsync(_cacheService, _currentUserService.UserId!, cancellationToken);
 
         return entity.Id;
     }
