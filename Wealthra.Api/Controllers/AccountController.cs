@@ -40,7 +40,7 @@ namespace Wealthra.Api.Controllers
 
             SetRefreshTokenCookie(response.RefreshToken, response.RefreshTokenExpiration);
 
-            return Ok(new { response.Id, response.Email, response.Token });
+            return Ok(new { response.Id, response.Email, response.Token, response.RefreshToken });
         }
 
         [AllowAnonymous]
@@ -73,10 +73,10 @@ namespace Wealthra.Api.Controllers
 
             SetRefreshTokenCookie(response.RefreshToken, response.RefreshTokenExpiration);
 
-            return Ok(new { response.Id, response.Email, response.Token });
+            return Ok(new { response.Id, response.Email, response.Token, response.RefreshToken });
         }
 
-        public record RefreshTokenRequest(string Token, string RefreshToken);
+        public record RefreshTokenRequest(string? Token, string? RefreshToken);
 
         [AllowAnonymous]
         [HttpPost("forgot-password")]
