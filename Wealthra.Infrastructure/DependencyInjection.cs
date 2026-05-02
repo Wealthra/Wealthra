@@ -148,6 +148,8 @@ namespace Wealthra.Infrastructure
                 client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("Groq:TimeoutSeconds") ?? 120);
             });
 
+            services.AddScoped<IGroqModelCatalog, GroqModelCatalog>();
+
             if (!string.IsNullOrWhiteSpace(configuration["Groq:ApiKey"]))
             {
                 services.AddScoped<IExpenseExtractionEnrichmentService, GroqExpenseExtractionEnrichmentService>();
