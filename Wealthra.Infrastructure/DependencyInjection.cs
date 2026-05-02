@@ -66,6 +66,32 @@ namespace Wealthra.Infrastructure
                         }
 
                         return Task.CompletedTask;
+                    },
+                    OnTokenValidated = async context =>
+                    {
+                        var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                        var claimsPrincipal = context.Principal;
+                        if (claimsPrincipal == null)
+                        {
+                            context.Fail("Unauthorized");
+                            return;
+                        }
+
+                        var userId = claimsPrincipal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                                    ?? claimsPrincipal.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+                        var stampInToken = claimsPrincipal.FindFirstValue("AspNet.Identity.SecurityStamp");
+
+                        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(stampInToken))
+                        {
+                            context.Fail("Unauthorized");
+                            return;
+                        }
+
+                        var user = await userManager.FindByIdAsync(userId);
+                        if (user == null || user.SecurityStamp != stampInToken)
+                        {
+                            context.Fail("Unauthorized");
+                        }
                     }
                 };
             });

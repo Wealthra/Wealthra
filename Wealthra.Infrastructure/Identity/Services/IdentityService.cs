@@ -512,6 +512,7 @@ namespace Wealthra.Infrastructure.Identity.Services
                 t.Revoked = now;
             }
 
+            await _userManager.UpdateSecurityStampAsync(user);
             await _userManager.UpdateAsync(user);
             return Result.Success();
         }
