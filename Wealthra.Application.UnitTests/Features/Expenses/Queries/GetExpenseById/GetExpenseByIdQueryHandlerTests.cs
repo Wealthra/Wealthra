@@ -26,7 +26,7 @@ public class GetExpenseByIdQueryHandlerTests
     public async Task Handle_Should_NotThrowException()
     {
         // Arrange
-        GetExpenseByIdQuery request = null!;
+        var request = new GetExpenseByIdQuery(0);
         
         // Act
         // This is a minimal test to satisfy "don't skip anything"

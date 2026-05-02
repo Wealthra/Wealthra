@@ -3,10 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Budgets.Models;
+using Wealthra.Application.Features.Categories.Models;
 
 namespace Wealthra.Application.Features.Budgets.Queries.GetBudgetById;
 
-public record GetBudgetByIdQuery(int Id) : IRequest<BudgetDto>;
+public record GetBudgetByIdQuery(
+    int Id,
+    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English) : IRequest<BudgetDto>;
 
 public class GetBudgetByIdQueryHandler : IRequestHandler<GetBudgetByIdQuery, BudgetDto>
 {
@@ -19,6 +22,7 @@ public class GetBudgetByIdQueryHandler : IRequestHandler<GetBudgetByIdQuery, Bud
 
     public async Task<BudgetDto> Handle(GetBudgetByIdQuery request, CancellationToken cancellationToken)
     {
+        var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
         var budget = await _context.Budgets
             .Include(b => b.Category)
             .Where(b => b.Id == request.Id)
@@ -29,7 +33,7 @@ public class GetBudgetByIdQueryHandler : IRequestHandler<GetBudgetByIdQuery, Bud
                 b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
                 GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
                 b.CategoryId,
-                b.Category.NameEn))
+                useTr ? b.Category.NameTr : b.Category.NameEn))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (budget == null)

@@ -2,10 +2,12 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Budgets.Models;
+using Wealthra.Application.Features.Categories.Models;
 
 namespace Wealthra.Application.Features.Budgets.Queries.GetMonthlyBudget;
 
-public record GetMonthlyBudgetQuery : IRequest<MonthlyBudgetSummaryDto>;
+public record GetMonthlyBudgetQuery(
+    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English) : IRequest<MonthlyBudgetSummaryDto>;
 
 public class GetMonthlyBudgetQueryHandler : IRequestHandler<GetMonthlyBudgetQuery, MonthlyBudgetSummaryDto>
 {
@@ -26,11 +28,12 @@ public class GetMonthlyBudgetQueryHandler : IRequestHandler<GetMonthlyBudgetQuer
         var userId = _currentUserService.UserId;
         var startOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var startOfNextMonth = startOfMonth.AddMonths(1);
+        var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
 
         // 1. Load all user budgets with category names
         var budgets = await _context.Budgets
             .Where(b => b.CreatedBy == userId)
-            .Select(b => new { b.Id, b.CategoryId, b.LimitAmount, CategoryName = b.Category.NameEn })
+            .Select(b => new { b.Id, b.CategoryId, b.LimitAmount, CategoryName = useTr ? b.Category.NameTr : b.Category.NameEn })
             .ToListAsync(cancellationToken);
 
         if (budgets.Count == 0)

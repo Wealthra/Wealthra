@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wealthra.Application.Features.Budgets.Commands.CreateBudget;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.Budgets.Commands.DeleteBudget;
 using Wealthra.Application.Features.Budgets.Commands.UpdateBudget;
 using Wealthra.Application.Features.Budgets.Models;
@@ -22,9 +23,14 @@ public class BudgetsController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<BudgetDto>>> GetBudgets()
+    public async Task<ActionResult<List<BudgetDto>>> GetBudgets([FromQuery] string language = "en")
     {
-        var budgets = await Mediator.Send(new GetUserBudgetsQuery());
+        if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
+        {
+            return BadRequest("Invalid language. Use 'en' or 'tr'.");
+        }
+
+        var budgets = await Mediator.Send(new GetUserBudgetsQuery(categoryLanguage));
         return Ok(budgets);
     }
 
@@ -36,16 +42,26 @@ public class BudgetsController : ApiControllerBase
     }
 
     [HttpGet("monthly")]
-    public async Task<ActionResult<MonthlyBudgetSummaryDto>> GetMonthly()
+    public async Task<ActionResult<MonthlyBudgetSummaryDto>> GetMonthly([FromQuery] string language = "en")
     {
-        var result = await Mediator.Send(new GetMonthlyBudgetQuery());
+        if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
+        {
+            return BadRequest("Invalid language. Use 'en' or 'tr'.");
+        }
+
+        var result = await Mediator.Send(new GetMonthlyBudgetQuery(categoryLanguage));
         return Ok(result);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<BudgetDto>> GetById(int id)
+    public async Task<ActionResult<BudgetDto>> GetById(int id, [FromQuery] string language = "en")
     {
-        var budget = await Mediator.Send(new GetBudgetByIdQuery(id));
+        if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
+        {
+            return BadRequest("Invalid language. Use 'en' or 'tr'.");
+        }
+
+        var budget = await Mediator.Send(new GetBudgetByIdQuery(id, categoryLanguage));
         return Ok(budget);
     }
 

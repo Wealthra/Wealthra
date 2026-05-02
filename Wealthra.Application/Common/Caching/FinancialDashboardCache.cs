@@ -1,4 +1,5 @@
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories.Models;
 
 namespace Wealthra.Application.Common.Caching;
 
@@ -8,24 +9,45 @@ public static class FinancialDashboardCache
     /// <summary>Suffixes for <c>?currency=</c> query variants; must cover supported dashboard currencies.</summary>
     private static readonly string[] CurrencyKeySuffixes = ["TRY", "USD", "EUR"];
 
-    public static string DashboardKey(string userId, string? targetCurrencyUpper = null) =>
-        string.IsNullOrEmpty(targetCurrencyUpper)
-            ? $"dashboard_{userId}"
-            : $"dashboard_{userId}_{targetCurrencyUpper}";
+    public static string DashboardKey(
+        string userId,
+        string? targetCurrencyUpper = null,
+        CategoryDisplayLanguage categoryLanguage = CategoryDisplayLanguage.English)
+    {
+        var lang = categoryLanguage == CategoryDisplayLanguage.Turkish ? "tr" : "en";
+        if (string.IsNullOrEmpty(targetCurrencyUpper))
+        {
+            return $"dashboard_{userId}_{lang}";
+        }
 
-    public static string DashboardWebKey(string userId, string? targetCurrencyUpper = null) =>
-        string.IsNullOrEmpty(targetCurrencyUpper)
-            ? $"dashboard_web_{userId}"
-            : $"dashboard_web_{userId}_{targetCurrencyUpper}";
+        return $"dashboard_{userId}_{targetCurrencyUpper}_{lang}";
+    }
+
+    public static string DashboardWebKey(
+        string userId,
+        string? targetCurrencyUpper = null,
+        CategoryDisplayLanguage categoryLanguage = CategoryDisplayLanguage.English)
+    {
+        var lang = categoryLanguage == CategoryDisplayLanguage.Turkish ? "tr" : "en";
+        if (string.IsNullOrEmpty(targetCurrencyUpper))
+        {
+            return $"dashboard_web_{userId}_{lang}";
+        }
+
+        return $"dashboard_web_{userId}_{targetCurrencyUpper}_{lang}";
+    }
 
     public static IEnumerable<string> AllKeysForUser(string userId)
     {
-        yield return DashboardKey(userId, null);
-        yield return DashboardWebKey(userId, null);
-        foreach (var c in CurrencyKeySuffixes)
+        foreach (var lang in new[] { CategoryDisplayLanguage.English, CategoryDisplayLanguage.Turkish })
         {
-            yield return DashboardKey(userId, c);
-            yield return DashboardWebKey(userId, c);
+            yield return DashboardKey(userId, null, lang);
+            yield return DashboardWebKey(userId, null, lang);
+            foreach (var c in CurrencyKeySuffixes)
+            {
+                yield return DashboardKey(userId, c, lang);
+                yield return DashboardWebKey(userId, c, lang);
+            }
         }
     }
 

@@ -5,10 +5,10 @@ using System.Threading.Tasks;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
 using Wealthra.Application.Features.Categories.Models;
+using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpense;
 using Wealthra.Application.Features.Expenses.Commands.CreateExpensesBulk;
 using Wealthra.Application.Features.Expenses.Commands.DeleteExpense;
-using Wealthra.Application.Features.Categories.Queries.GetAllCategories;
 using Wealthra.Application.Features.Expenses.Commands.UpdateExpense;
 using Wealthra.Application.Features.Expenses.Models;
 using Wealthra.Application.Features.Expenses.Queries.GetExpenseById;
@@ -166,9 +166,14 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ExpenseDto>> GetById(int id)
+        public async Task<ActionResult<ExpenseDto>> GetById(int id, [FromQuery] string language = "en")
         {
-            var expense = await Mediator.Send(new GetExpenseByIdQuery(id));
+            if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
+            {
+                return BadRequest("Invalid language. Use 'en' or 'tr'.");
+            }
+
+            var expense = await Mediator.Send(new GetExpenseByIdQuery(id, categoryLanguage));
             return Ok(expense);
         }
 
@@ -192,16 +197,32 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("user")]
-        public async Task<ActionResult<PaginatedList<ExpenseDto>>> GetUserExpenses([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<PaginatedList<ExpenseDto>>> GetUserExpenses(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string language = "en")
         {
-            var result = await Mediator.Send(new GetUserExpensesQuery { PageNumber = pageNumber, PageSize = pageSize });
+            var result = await Mediator.Send(new GetUserExpensesQuery
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Language = language
+            });
             return Ok(result);
         }
 
         [HttpGet("summary")]
-        public async Task<ActionResult<List<ExpenseSummaryDto>>> GetSummary([FromQuery] string period = "Monthly", [FromQuery] string? currency = null)
+        public async Task<ActionResult<List<ExpenseSummaryDto>>> GetSummary(
+            [FromQuery] string period = "Monthly",
+            [FromQuery] string? currency = null,
+            [FromQuery] string language = "en")
         {
-            var summary = await Mediator.Send(new GetExpenseSummaryQuery { Period = period, TargetCurrency = currency });
+            var summary = await Mediator.Send(new GetExpenseSummaryQuery
+            {
+                Period = period,
+                TargetCurrency = currency,
+                Language = language
+            });
             return Ok(summary);
         }
 

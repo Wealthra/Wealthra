@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.Expenses.Models;
 
 namespace Wealthra.Application.Features.Expenses.Queries.GetExpenseSummary;
@@ -10,6 +11,7 @@ public record GetExpenseSummaryQuery : IRequest<List<ExpenseSummaryDto>>
 {
     public string Period { get; init; } = "Monthly";
     public string? TargetCurrency { get; init; }
+    public string Language { get; init; } = "en";
 }
 
 public class GetExpenseSummaryQueryValidator : AbstractValidator<GetExpenseSummaryQuery>
@@ -19,6 +21,10 @@ public class GetExpenseSummaryQueryValidator : AbstractValidator<GetExpenseSumma
         RuleFor(v => v.Period)
             .Must(p => p == "Weekly" || p == "Monthly" || p == "Yearly")
             .WithMessage("Period must be Weekly, Monthly, or Yearly.");
+
+        RuleFor(v => v.Language)
+            .Must(l => CategoryLanguageParser.TryParse(l, out _))
+            .WithMessage("Invalid language. Use 'en' or 'tr'.");
     }
 }
 
@@ -67,18 +73,24 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
             e.Amount = await _currencyService.ConvertAsync(e.Amount, sourceCurrency, prefCurrency, cancellationToken);
         }
 
+        CategoryLanguageParser.TryParse(request.Language, out var categoryLanguage);
+        var useTr = categoryLanguage == CategoryDisplayLanguage.Turkish;
+
         var groupedExpenses = request.Period switch
         {
-            "Weekly" => GroupByWeek(expenses, now),
-            "Monthly" => GroupByMonth(expenses, now),
-            "Yearly" => GroupByYear(expenses, now),
-            _ => GroupByMonth(expenses, now)
+            "Weekly" => GroupByWeek(expenses, now, useTr),
+            "Monthly" => GroupByMonth(expenses, now, useTr),
+            "Yearly" => GroupByYear(expenses, now, useTr),
+            _ => GroupByMonth(expenses, now, useTr)
         };
 
         return groupedExpenses;
     }
 
-    private List<ExpenseSummaryDto> GroupByWeek(List<Domain.Entities.Expense> expenses, DateTime now)
+    private static string CategoryLabel(Domain.Entities.Expense e, bool useTr) =>
+        useTr ? e.Category.NameTr : e.Category.NameEn;
+
+    private List<ExpenseSummaryDto> GroupByWeek(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr)
     {
         var last12Weeks = Enumerable.Range(0, 12)
             .Select(i => now.AddDays(-i * 7).Date)
@@ -94,13 +106,13 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 $"Week of {weekStart:MMM dd}",
                 weekExpenses.Sum(e => e.Amount),
                 weekExpenses.Count,
-                weekExpenses.GroupBy(e => e.Category.NameEn)
+                weekExpenses.GroupBy(e => CategoryLabel(e, useTr))
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();
     }
 
-    private List<ExpenseSummaryDto> GroupByMonth(List<Domain.Entities.Expense> expenses, DateTime now)
+    private List<ExpenseSummaryDto> GroupByMonth(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr)
     {
         var last12Months = Enumerable.Range(0, 12)
             .Select(i => now.AddMonths(-i).Date)
@@ -117,13 +129,13 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 monthStart.ToString("MMMM yyyy"),
                 monthExpenses.Sum(e => e.Amount),
                 monthExpenses.Count,
-                monthExpenses.GroupBy(e => e.Category.NameEn)
+                monthExpenses.GroupBy(e => CategoryLabel(e, useTr))
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();
     }
 
-    private List<ExpenseSummaryDto> GroupByYear(List<Domain.Entities.Expense> expenses, DateTime now)
+    private List<ExpenseSummaryDto> GroupByYear(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr)
     {
         var last5Years = Enumerable.Range(0, 5)
             .Select(i => now.AddYears(-i).Year)
@@ -138,7 +150,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 year.ToString(),
                 yearExpenses.Sum(e => e.Amount),
                 yearExpenses.Count,
-                yearExpenses.GroupBy(e => e.Category.NameEn)
+                yearExpenses.GroupBy(e => CategoryLabel(e, useTr))
                     .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount))
             );
         }).ToList();

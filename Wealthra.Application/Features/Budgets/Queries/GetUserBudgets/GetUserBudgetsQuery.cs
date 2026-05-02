@@ -2,10 +2,12 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Budgets.Models;
+using Wealthra.Application.Features.Categories.Models;
 
 namespace Wealthra.Application.Features.Budgets.Queries.GetUserBudgets;
 
-public record GetUserBudgetsQuery : IRequest<List<BudgetDto>>;
+public record GetUserBudgetsQuery(
+    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English) : IRequest<List<BudgetDto>>;
 
 public class GetUserBudgetsQueryHandler : IRequestHandler<GetUserBudgetsQuery, List<BudgetDto>>
 {
@@ -20,6 +22,7 @@ public class GetUserBudgetsQueryHandler : IRequestHandler<GetUserBudgetsQuery, L
 
     public async Task<List<BudgetDto>> Handle(GetUserBudgetsQuery request, CancellationToken cancellationToken)
     {
+        var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
         var budgets = await _context.Budgets
             .Include(b => b.Category)
             .Where(b => b.CreatedBy == _currentUserService.UserId)
@@ -30,7 +33,7 @@ public class GetUserBudgetsQueryHandler : IRequestHandler<GetUserBudgetsQuery, L
                 b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
                 GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
                 b.CategoryId,
-                b.Category.NameEn))
+                useTr ? b.Category.NameTr : b.Category.NameEn))
             .ToListAsync(cancellationToken);
 
         return budgets;

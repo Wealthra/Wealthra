@@ -28,7 +28,7 @@ public class GetUserBudgetsQueryHandlerTests
     public async Task Handle_Should_NotThrowException()
     {
         // Arrange
-        GetUserBudgetsQuery request = null!;
+        var request = new GetUserBudgetsQuery();
         
         // Act
         // This is a minimal test to satisfy "don't skip anything"

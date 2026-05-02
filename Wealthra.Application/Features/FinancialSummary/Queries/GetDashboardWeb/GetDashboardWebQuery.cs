@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.FinancialSummary.Models;
 
 namespace Wealthra.Application.Features.FinancialSummary.Queries.GetDashboardWeb;
@@ -10,6 +11,7 @@ namespace Wealthra.Application.Features.FinancialSummary.Queries.GetDashboardWeb
 public record GetDashboardWebQuery : IRequest<DashboardWebDto>
 {
     public string? TargetCurrency { get; init; }
+    public CategoryDisplayLanguage CategoryLanguage { get; init; } = CategoryDisplayLanguage.English;
 }
 
 public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery, DashboardWebDto>
@@ -41,7 +43,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
     {
         var userId = _currentUserService.UserId ?? string.Empty;
         var targetCurr = request.TargetCurrency?.ToUpperInvariant();
-        var cacheKey = FinancialDashboardCache.DashboardWebKey(userId, targetCurr);
+        var cacheKey = FinancialDashboardCache.DashboardWebKey(userId, targetCurr, request.CategoryLanguage);
         var cached = await _cacheService.GetAsync<DashboardWebDto>(cacheKey, cancellationToken);
         if (cached != null)
         {
@@ -52,6 +54,8 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
         var prefCurrency = targetCurr
             ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
             ?? DefaultCurrency;
+
+        var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
 
         var now = DateTime.UtcNow;
         var periodStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -162,7 +166,11 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
             .Where(e => e.CreatedBy == userId &&
                          e.TransactionDate >= periodStart &&
                          e.TransactionDate < periodEndExclusive)
-            .Select(e => new ExpenseCategoryAmount(e.CategoryId, e.Category.NameEn, e.Amount, e.Currency ?? DefaultCurrency))
+            .Select(e => new ExpenseCategoryAmount(
+                e.CategoryId,
+                useTr ? e.Category.NameTr : e.Category.NameEn,
+                e.Amount,
+                e.Currency ?? DefaultCurrency))
             .ToListAsync(cancellationToken);
 
         var convertedPeriodExpenseRows = new List<(int CategoryId, string CategoryName, decimal Amount)>();
@@ -205,7 +213,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
                 e.Amount,
                 e.Currency ?? DefaultCurrency,
                 e.TransactionDate,
-                e.Category.NameEn,
+                useTr ? e.Category.NameTr : e.Category.NameEn,
                 e.IsRecurring,
                 null))
             .ToListAsync(cancellationToken);
@@ -254,7 +262,7 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
             .Where(b => b.CreatedBy == userId)
             .Select(b => new BudgetAmount(
                 b.Id,
-                b.Category.NameEn,
+                useTr ? b.Category.NameTr : b.Category.NameEn,
                 b.LimitAmount,
                 b.CurrentAmount,
                 b.Currency ?? DefaultCurrency))

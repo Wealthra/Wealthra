@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Caching;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.FinancialSummary.Models;
 
 namespace Wealthra.Application.Features.FinancialSummary.Queries.GetFinancialDashboard;
@@ -9,6 +10,7 @@ namespace Wealthra.Application.Features.FinancialSummary.Queries.GetFinancialDas
 public record GetFinancialDashboardQuery : IRequest<FinancialDashboardDto>
 {
     public string? TargetCurrency { get; init; }
+    public CategoryDisplayLanguage CategoryLanguage { get; init; } = CategoryDisplayLanguage.English;
 }
 
 public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDashboardQuery, FinancialDashboardDto>
@@ -38,7 +40,10 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
     public async Task<FinancialDashboardDto> Handle(GetFinancialDashboardQuery request, CancellationToken cancellationToken)
     {
         var targetCurr = request.TargetCurrency?.ToUpperInvariant();
-        var cacheKey = FinancialDashboardCache.DashboardKey(_currentUserService.UserId!, targetCurr);
+        var cacheKey = FinancialDashboardCache.DashboardKey(
+            _currentUserService.UserId!,
+            targetCurr,
+            request.CategoryLanguage);
 
         // Try to get from cache first
         // Note: For simplicity here, we might invalidate cache differently if we change preferred currency.
@@ -52,6 +57,8 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
         var prefCurrency = targetCurr
             ?? userDetails?.PreferredCurrency?.ToUpperInvariant()
             ?? DefaultCurrency;
+
+        var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
 
         // Calculate totals dynamically using the currency exchange service
         var incomeGroups = await _context.Incomes
@@ -95,7 +102,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
                 e.Amount,
                 Currency = e.Currency ?? DefaultCurrency,
                 e.TransactionDate,
-                CategoryName = (string?)e.Category.NameEn
+                CategoryName = (string?)(useTr ? e.Category.NameTr : e.Category.NameEn)
             })
             .ToListAsync(cancellationToken);
 
@@ -161,7 +168,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
 
         var categoryNames = await _context.Categories
             .Where(c => categoryIds.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => c.NameEn, cancellationToken);
+            .ToDictionaryAsync(c => c.Id, c => useTr ? c.NameTr : c.NameEn, cancellationToken);
 
         var topCategories = convertedExpenses
             .GroupBy(e => e.CategoryId)
@@ -181,7 +188,7 @@ public class GetFinancialDashboardQueryHandler : IRequestHandler<GetFinancialDas
             .Select(b => new
             {
                 b.Id,
-                CategoryName = b.Category.NameEn,
+                CategoryName = useTr ? b.Category.NameTr : b.Category.NameEn,
                 b.LimitAmount,
                 b.CurrentAmount,
                 Currency = b.Currency ?? DefaultCurrency
