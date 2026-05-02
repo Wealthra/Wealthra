@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories;
 using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.UpdateCategory;
@@ -26,7 +27,6 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 {
     private readonly IApplicationDbContext _context;
     private readonly ICacheService _cacheService;
-    private const string CacheKey = "categories_all";
 
     public UpdateCategoryCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
@@ -56,6 +56,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _cacheService.RemoveAsync(CacheKey, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.English, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.Turkish, cancellationToken);
     }
 }

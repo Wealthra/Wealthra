@@ -12,10 +12,35 @@ namespace Wealthra.Api.Controllers;
 public class CategoriesController : ApiControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<CategoryDto>>> GetAll()
+    public async Task<ActionResult<List<CategoryDto>>> GetAll([FromQuery] string language = "en")
     {
-        var categories = await Mediator.Send(new GetAllCategoriesQuery());
+        if (!TryParseCategoryLanguage(language, out var lang))
+        {
+            return BadRequest("Invalid language. Use 'en' or 'tr'.");
+        }
+
+        var categories = await Mediator.Send(new GetAllCategoriesQuery(lang));
         return Ok(categories);
+    }
+
+    private static bool TryParseCategoryLanguage(string? value, out CategoryDisplayLanguage lang)
+    {
+        lang = CategoryDisplayLanguage.English;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "en":
+                return true;
+            case "tr":
+                lang = CategoryDisplayLanguage.Turkish;
+                return true;
+            default:
+                return false;
+        }
     }
 
     [Authorize(Policy = AuthPolicies.AdminElevated)]

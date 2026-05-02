@@ -28,7 +28,7 @@ public class GetAllCategoriesQueryHandlerTests
     public async Task Handle_Should_NotThrowException()
     {
         // Arrange
-        GetAllCategoriesQuery request = null!;
+        var request = new GetAllCategoriesQuery();
         
         // Act
         // This is a minimal test to satisfy "don't skip anything"

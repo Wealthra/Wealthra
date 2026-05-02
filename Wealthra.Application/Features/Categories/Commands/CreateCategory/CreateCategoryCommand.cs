@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories;
 using Wealthra.Domain.Entities;
 
 namespace Wealthra.Application.Features.Categories.Commands.CreateCategory;
@@ -21,7 +22,6 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
 {
     private readonly IApplicationDbContext _context;
     private readonly ICacheService _cacheService;
-    private const string CacheKey = "categories_all";
 
     public CreateCategoryCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
@@ -38,7 +38,8 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         _context.Categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        await _cacheService.RemoveAsync(CacheKey, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.English, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.Turkish, cancellationToken);
 
         return category.Id;
     }

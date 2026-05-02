@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Exceptions;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories;
 using Wealthra.Domain.Entities;
 using ValidationException = Wealthra.Application.Common.Exceptions.ValidationException;
 
@@ -23,7 +24,6 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
 {
     private readonly IApplicationDbContext _context;
     private readonly ICacheService _cacheService;
-    private const string CacheKey = "categories_all";
 
     public DeleteCategoryCommandHandler(IApplicationDbContext context, ICacheService cacheService)
     {
@@ -55,7 +55,7 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
         _context.Categories.Remove(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Invalidate cache
-        await _cacheService.RemoveAsync(CacheKey, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.English, cancellationToken);
+        await _cacheService.RemoveAsync(CategoryListCacheKeys.Turkish, cancellationToken);
     }
 }
