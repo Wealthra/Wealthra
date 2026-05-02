@@ -12,6 +12,7 @@ using Wealthra.Infrastructure.Identity.Models;
 using Wealthra.Infrastructure.Identity.Services;
 using Wealthra.Infrastructure.Persistence;
 using Wealthra.Infrastructure.Services;
+using System.Security.Claims;
 using Wealthra.Infrastructure.Settings;
 
 namespace Wealthra.Infrastructure
