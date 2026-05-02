@@ -121,15 +121,16 @@ namespace Wealthra.Infrastructure.Identity.Services
 
         private async Task<(Result Result, AuthResponse Response)> GenerateAuthResponseAsync(ApplicationUser user)
         {
-            var roles = await _userManager.GetRolesAsync(user);
-            var accessToken = _tokenGenerator.GenerateToken(user, roles);
             var refreshToken = _tokenGenerator.GenerateRefreshToken();
-
             refreshToken.UserId = user.Id;
-
             user.RefreshTokens.Add(refreshToken);
 
+            // Update user in DB first to ensure SecurityStamp is persisted/updated
             await _userManager.UpdateAsync(user);
+
+            // Now generate the token using the final state of the user (including roles and stamp)
+            var roles = await _userManager.GetRolesAsync(user);
+            var accessToken = _tokenGenerator.GenerateToken(user, roles);
 
             return (Result.Success(), new AuthResponse(
                 user.Id,
