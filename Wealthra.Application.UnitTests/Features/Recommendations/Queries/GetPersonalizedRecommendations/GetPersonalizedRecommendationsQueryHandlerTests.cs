@@ -65,7 +65,12 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
                 .ReturnsAsync(new List<CollaborativeSuggestion> { new() { CategoryId = 2, CategoryName = "Invest", Score = 0.7f } });
 
             _semanticServiceMock
-                .Setup(x => x.GetTipsAsync(_userId, It.IsAny<RecommendationSignal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.GetTipsAsync(
+                    _userId,
+                    It.IsAny<IReadOnlyList<RecommendationSignal>>(),
+                    It.IsAny<IReadOnlyList<MonthlyCategoryMetric>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<SemanticTipResult> { new() { TipId = 1, Topic = "Tip", Body = "Body" } });
         }
 
@@ -83,7 +88,12 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
             result.CollaborativeSuggestions.Should().BeEmpty();
             result.SemanticTips.Should().BeEmpty();
             _collaborativeServiceMock.Verify(x => x.GetSuggestionsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-            _semanticServiceMock.Verify(x => x.GetTipsAsync(It.IsAny<string>(), It.IsAny<RecommendationSignal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            _semanticServiceMock.Verify(x => x.GetTipsAsync(
+                It.IsAny<string>(),
+                It.IsAny<IReadOnlyList<RecommendationSignal>>(),
+                It.IsAny<IReadOnlyList<MonthlyCategoryMetric>>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -100,7 +110,12 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
             result.CollaborativeSuggestions.Should().HaveCount(1);
             result.SemanticTips.Should().BeEmpty();
             _collaborativeServiceMock.Verify(x => x.GetSuggestionsAsync(_userId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-            _semanticServiceMock.Verify(x => x.GetTipsAsync(It.IsAny<string>(), It.IsAny<RecommendationSignal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            _semanticServiceMock.Verify(x => x.GetTipsAsync(
+                It.IsAny<string>(),
+                It.IsAny<IReadOnlyList<RecommendationSignal>>(),
+                It.IsAny<IReadOnlyList<MonthlyCategoryMetric>>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -117,7 +132,12 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
             result.CollaborativeSuggestions.Should().HaveCount(1);
             result.SemanticTips.Should().HaveCount(1);
             _collaborativeServiceMock.Verify(x => x.GetSuggestionsAsync(_userId, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-            _semanticServiceMock.Verify(x => x.GetTipsAsync(_userId, It.IsAny<RecommendationSignal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+            _semanticServiceMock.Verify(x => x.GetTipsAsync(
+                _userId,
+                It.IsAny<IReadOnlyList<RecommendationSignal>>(),
+                It.IsAny<IReadOnlyList<MonthlyCategoryMetric>>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()), Times.Once);
         }
 
         private GetPersonalizedRecommendationsQueryHandler BuildHandler()

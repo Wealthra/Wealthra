@@ -70,11 +70,12 @@ namespace Wealthra.Application.Features.Recommendations.Queries.GetPersonalizedR
 
             if (canUseLayer3 && _recommendationFeatureFlags.EnableSemanticTips)
             {
-                var topSignal = signals
-                    .OrderByDescending(s => s.Severity == "high")
-                    .ThenBy(s => s.ReasonCode)
-                    .FirstOrDefault();
-                response.SemanticTips = await _semanticTipRecommendationService.GetTipsAsync(userId, topSignal, normalizedLanguage, cancellationToken);
+                response.SemanticTips = await _semanticTipRecommendationService.GetTipsAsync(
+                    userId,
+                    signals,
+                    metrics,
+                    normalizedLanguage,
+                    cancellationToken);
             }
 
             return response;

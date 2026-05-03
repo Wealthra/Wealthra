@@ -226,6 +226,7 @@ using (var scope = app.Services.CreateScope())
             {
                 await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedDemoDataAsync(services);
                 await Wealthra.Infrastructure.Persistence.Seeding.DataSeeder.SeedAnomalyDetectionDataAsync(services);
+                await Wealthra.Infrastructure.Persistence.Seeding.FinancialTipsSeeder.EnsureAsync(services);
             }
 
             break; // Success! Exit the retry loop

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Models;
+using Wealthra.Application.Features.Recommendations.Services;
+using Wealthra.Domain.Entities;
 using Wealthra.Infrastructure.Persistence;
 
 namespace Wealthra.Infrastructure.Services
@@ -16,54 +18,34 @@ namespace Wealthra.Infrastructure.Services
             _textEmbeddingService = textEmbeddingService;
         }
 
-        public async Task<List<SemanticTipResult>> GetTipsAsync(string userId, RecommendationSignal? topSignal, string language, CancellationToken cancellationToken)
+        public async Task<List<SemanticTipResult>> GetTipsAsync(
+            string userId,
+            IReadOnlyList<RecommendationSignal> signals,
+            IReadOnlyList<MonthlyCategoryMetric> metrics,
+            string language,
+            CancellationToken cancellationToken)
         {
+            _ = userId;
+
             var normalizedLanguage = language?.Trim().ToLowerInvariant() ?? "en";
             var preferredLocalePrefix = normalizedLanguage == "tr" ? "tr" : "en";
-            var defaultMatchReason = normalizedLanguage == "tr" ? "Varsayilan tavsiye" : "Default suggestion";
 
-            if (topSignal is null)
-            {
-                var localizedTips = await _context.FinancialTips
-                    .AsNoTracking()
-                    .Where(x => x.Locale.ToLower().StartsWith(preferredLocalePrefix))
-                    .OrderBy(x => x.Id)
-                    .Take(3)
-                    .Select(x => new SemanticTipResult
-                    {
-                        TipId = x.Id,
-                        Topic = x.Topic,
-                        Body = x.Body,
-                        Locale = x.Locale,
-                        MatchReason = defaultMatchReason
-                    })
-                    .ToListAsync(cancellationToken);
-
-                if (localizedTips.Count > 0)
-                {
-                    return localizedTips;
-                }
-
-                return await _context.FinancialTips
-                    .AsNoTracking()
-                    .OrderBy(x => x.Id)
-                    .Take(3)
-                    .Select(x => new SemanticTipResult
-                    {
-                        TipId = x.Id,
-                        Topic = x.Topic,
-                        Body = x.Body,
-                        Locale = x.Locale,
-                        MatchReason = defaultMatchReason
-                    })
-                    .ToListAsync(cancellationToken);
-            }
-
-            var queryVector = await _textEmbeddingService.CreateEmbeddingAsync(topSignal.Evidence, cancellationToken);
+            var situationText = RecommendationSituationTextBuilder.Build(signals, metrics, normalizedLanguage);
+            var queryVector = await _textEmbeddingService.CreateEmbeddingAsync(situationText, cancellationToken);
             var vectorLiteral = $"[{string.Join(",", queryVector.Select(x => x.ToString(System.Globalization.CultureInfo.InvariantCulture)))}]";
-            var matchReason = normalizedLanguage == "tr"
-                ? $"'{topSignal.CategoryName}' icin semantik yakin tip"
-                : $"Semantically similar tip for '{topSignal.CategoryName}'";
+
+            var primarySignal = signals
+                .OrderByDescending(SeverityRank)
+                .ThenBy(s => s.ReasonCode, StringComparer.Ordinal)
+                .FirstOrDefault();
+
+            var matchReason = primarySignal is null
+                ? (normalizedLanguage == "tr"
+                    ? "Aylık durumuna göre semantik olarak yakın ipuçları"
+                    : "Semantically similar tips for your monthly situation")
+                : (normalizedLanguage == "tr"
+                    ? $"'{primarySignal.CategoryName}' ve diğer sinyallere yakın ipuçları"
+                    : $"Tips aligned with '{primarySignal.CategoryName}' and your signals");
 
             var localizedResults = await _context.Database
                 .SqlQueryRaw<SemanticTipResult>(
@@ -101,5 +83,14 @@ namespace Wealthra.Infrastructure.Services
                     """, vectorLiteral, matchReason)
                 .ToListAsync(cancellationToken);
         }
+
+        private static int SeverityRank(RecommendationSignal s) =>
+            s.Severity?.ToLowerInvariant() switch
+            {
+                "high" => 3,
+                "medium" => 2,
+                "info" => 1,
+                _ => 0
+            };
     }
 }

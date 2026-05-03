@@ -519,6 +519,9 @@ namespace Wealthra.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Topic", "Locale")
+                        .IsUnique();
+
                     b.ToTable("FinancialTips", (string)null);
                 });
 
