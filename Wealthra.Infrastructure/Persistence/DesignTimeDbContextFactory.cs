@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Pgvector.EntityFrameworkCore;
 using System.IO;
 using Wealthra.Infrastructure.Services;
 
@@ -20,7 +21,7 @@ namespace Wealthra.Infrastructure.Persistence
             var builder = new DbContextOptionsBuilder<ApplicationDbContext>();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-            builder.UseNpgsql(connectionString);
+            builder.UseNpgsql(connectionString, n => n.UseVector());
 
             // Create a dummy instance for design-time only
             return new ApplicationDbContext(builder.Options, new DateTimeService(), null!, null!);

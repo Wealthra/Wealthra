@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Pgvector;
 using Wealthra.Domain.Entities;
 
 namespace Wealthra.Infrastructure.Persistence.Configurations
@@ -27,8 +29,11 @@ namespace Wealthra.Infrastructure.Persistence.Configurations
                 .HasMaxLength(500)
                 .IsRequired();
 
-            builder.Property<string>("Embedding")
+            // Mapped as Pgvector.Vector so Npgsql can read/write the column; inserts still omit it (DB default + seeder UPDATE).
+            var embeddingProperty = builder.Property<Vector>("Embedding")
                 .HasColumnType("vector(16)");
+            embeddingProperty.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+            embeddingProperty.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
         }
     }
 }

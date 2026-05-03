@@ -9,8 +9,14 @@ namespace Wealthra.Infrastructure.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IMemoryCache _memoryCache;
-        private const string CacheKey = "recommendations-peer-profile-v2";
+        private const string CacheKey = "recommendations-peer-profile-v3-savings";
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
+
+        /// <summary>Minimum (userShare - peerShare) on total wallet to flag overspending vs peers (e.g. 0.10 = 10 percentage points).</summary>
+        private const float MinOverspendVsPeerGap = 0.10f;
+
+        /// <summary>Ignore categories that are a tiny slice of the user's own spending (noise).</summary>
+        private const float MinUserCategoryShare = 0.02f;
 
         public CollaborativeRecommendationService(IApplicationDbContext context, IMemoryCache memoryCache)
         {
@@ -52,36 +58,34 @@ namespace Wealthra.Infrastructure.Services
                              ?? modelData.PeerScoresByIncomeBucket.GetValueOrDefault(1)
                              ?? new Dictionary<int, float>();
 
-            var existingUserCategoryIds = await _context.Expenses
-                .AsNoTracking()
-                .Where(e => e.CreatedBy == userId)
-                .Select(e => e.CategoryId)
-                .Distinct()
-                .ToHashSetAsync(cancellationToken);
-
             var suggestions = new List<CollaborativeSuggestion>();
-            foreach (var pair in peerScores)
+            foreach (var (categoryId, userScore) in currentUserProfile)
             {
-                if (existingUserCategoryIds.Contains(pair.Key))
+                if (userScore < MinUserCategoryShare)
                 {
                     continue;
                 }
 
-                var userScore = currentUserProfile.GetValueOrDefault(pair.Key);
-                var peerScore = pair.Value;
-                var gap = peerScore - userScore;
-                if (gap > 0.20f)
+                if (!peerScores.TryGetValue(categoryId, out var peerScore))
                 {
-                    suggestions.Add(new CollaborativeSuggestion
-                    {
-                        CategoryId = pair.Key,
-                        CategoryName = categoryMap.GetValueOrDefault(pair.Key, isTurkish ? "Kategori" : "Category"),
-                        Score = gap,
-                        Evidence = isTurkish
-                            ? "Benzer aylık gelir bandındaki kullanıcılar bu kategoriye gelirlerinin daha yüksek bir payını ayırıyor."
-                            : "Users in a similar monthly income band allocate a higher share of income to this category."
-                    });
+                    continue;
                 }
+
+                var overspendGap = userScore - peerScore;
+                if (overspendGap < MinOverspendVsPeerGap)
+                {
+                    continue;
+                }
+
+                suggestions.Add(new CollaborativeSuggestion
+                {
+                    CategoryId = categoryId,
+                    CategoryName = categoryMap.GetValueOrDefault(categoryId, isTurkish ? "Kategori" : "Category"),
+                    Score = overspendGap,
+                    Evidence = isTurkish
+                        ? "Harcamalarının bu kategorideki payı, benzer aylık gelir bandındaki kullanıcılara göre yüksek. Burada kısıntı yapmak tasarruf için alan açabilir."
+                        : "You allocate a larger share of your spending to this category than peers with similar monthly income. Easing up here could free money for savings."
+                });
             }
 
             return suggestions
