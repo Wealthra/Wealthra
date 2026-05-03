@@ -64,9 +64,14 @@ public class GoalsController : ApiControllerBase
 
     [HttpGet("user")]
     public async Task<ActionResult<PaginatedList<GoalHistoryDto>>> GetUserGoalHistory(
-        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? currency = null)
     {
-        var result = await Mediator.Send(new GetUserGoalHistoryQuery { PageNumber = pageNumber, PageSize = pageSize });
+        var result = await Mediator.Send(new GetUserGoalHistoryQuery 
+        { 
+            PageNumber = pageNumber, 
+            PageSize = pageSize,
+            TargetCurrency = currency
+        });
         return Ok(result);
     }
 }
