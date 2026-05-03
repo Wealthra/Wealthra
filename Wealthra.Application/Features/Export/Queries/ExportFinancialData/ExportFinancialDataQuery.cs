@@ -97,7 +97,7 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
         {
             var limit = await _currencyService.ConvertAsync(b.LimitAmount, b.Currency ?? "TRY", targetCurrency, cancellationToken);
             var current = await _currencyService.ConvertAsync(b.CurrentAmount, b.Currency ?? "TRY", targetCurrency, cancellationToken);
-            budgetDtos.Add(new BudgetDto(b.Id, limit, current, limit > 0 ? (current/limit)*100 : 0, "Active", b.CategoryId, isTr ? b.Category.NameTr : b.Category.NameEn));
+            budgetDtos.Add(new BudgetDto(b.Id, limit, current, limit > 0 ? (current/limit)*100 : 0, "Active", b.CategoryId, isTr ? b.Category.NameTr : b.Category.NameEn, targetCurrency));
         }
 
         var goalDtos = new List<GoalDto>();
@@ -105,7 +105,7 @@ public class ExportFinancialDataQueryHandler : IRequestHandler<ExportFinancialDa
         {
             var target = await _currencyService.ConvertAsync(g.TargetAmount, g.Currency ?? "TRY", targetCurrency, cancellationToken);
             var current = await _currencyService.ConvertAsync(g.CurrentAmount, g.Currency ?? "TRY", targetCurrency, cancellationToken);
-            goalDtos.Add(new GoalDto(g.Id, g.Name, target, current, target > 0 ? (current/target)*100 : 0, g.Deadline, current >= target));
+            goalDtos.Add(new GoalDto(g.Id, g.Name, target, current, target > 0 ? (current/target)*100 : 0, g.Deadline, current >= target, targetCurrency));
         }
 
         var reportData = new FinancialReportData(startDate, endDate, targetCurrency, request.Language, expenseDtos, incomeDtos, budgetDtos, goalDtos);

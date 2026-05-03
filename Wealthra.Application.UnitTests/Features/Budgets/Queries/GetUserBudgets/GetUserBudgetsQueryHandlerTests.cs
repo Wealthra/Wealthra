@@ -13,6 +13,7 @@ public class GetUserBudgetsQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ICurrencyExchangeService> _mockCurrencyService;
 
     private readonly GetUserBudgetsQueryHandler _handler;
 
@@ -20,8 +21,9 @@ public class GetUserBudgetsQueryHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockCurrencyService = new Mock<ICurrencyExchangeService>();
 
-        _handler = new GetUserBudgetsQueryHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new GetUserBudgetsQueryHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockCurrencyService.Object);
     }
 
     [Fact]

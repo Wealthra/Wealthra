@@ -23,9 +23,9 @@ public class GoalsController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<GoalDto>>> GetGoals()
+    public async Task<ActionResult<List<GoalDto>>> GetGoals([FromQuery] string? currency = null)
     {
-        var goals = await Mediator.Send(new GetUserGoalsQuery());
+        var goals = await Mediator.Send(new GetUserGoalsQuery(currency));
         return Ok(goals);
     }
 

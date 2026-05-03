@@ -197,17 +197,9 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("user")]
-        public async Task<ActionResult<PaginatedList<ExpenseDto>>> GetUserExpenses(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string language = "en")
+        public async Task<ActionResult<PaginatedList<ExpenseDto>>> GetUserExpenses([FromQuery] GetUserExpensesQuery query)
         {
-            var result = await Mediator.Send(new GetUserExpensesQuery
-            {
-                PageNumber = pageNumber,
-                PageSize = pageSize,
-                Language = language
-            });
+            var result = await Mediator.Send(query);
             return Ok(result);
         }
 

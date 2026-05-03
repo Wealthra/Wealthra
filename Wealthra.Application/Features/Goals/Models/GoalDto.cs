@@ -7,4 +7,5 @@ public record GoalDto(
     decimal CurrentAmount,
     decimal ProgressPercentage,
     DateTime Deadline,
-    bool IsCompleted);
+    bool IsCompleted,
+    string Currency);

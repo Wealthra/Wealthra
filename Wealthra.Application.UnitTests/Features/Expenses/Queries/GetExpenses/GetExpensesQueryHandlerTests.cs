@@ -13,6 +13,7 @@ public class GetExpensesQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockICurrentUserService;
+    private readonly Mock<ICurrencyExchangeService> _mockCurrencyService;
 
     private readonly GetExpensesQueryHandler _handler;
 
@@ -20,8 +21,9 @@ public class GetExpensesQueryHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockICurrentUserService = new Mock<ICurrentUserService>();
+        _mockCurrencyService = new Mock<ICurrencyExchangeService>();
 
-        _handler = new GetExpensesQueryHandler(_mockContext.Object, _mockICurrentUserService.Object);
+        _handler = new GetExpensesQueryHandler(_mockContext.Object, _mockICurrentUserService.Object, _mockCurrencyService.Object);
     }
 
     [Fact]

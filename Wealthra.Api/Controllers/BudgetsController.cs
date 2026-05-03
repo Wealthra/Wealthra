@@ -23,14 +23,14 @@ public class BudgetsController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<BudgetDto>>> GetBudgets([FromQuery] string language = "en")
+    public async Task<ActionResult<List<BudgetDto>>> GetBudgets([FromQuery] string language = "en", [FromQuery] string? currency = null)
     {
         if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
         {
             return BadRequest("Invalid language. Use 'en' or 'tr'.");
         }
 
-        var budgets = await Mediator.Send(new GetUserBudgetsQuery(categoryLanguage));
+        var budgets = await Mediator.Send(new GetUserBudgetsQuery(categoryLanguage, currency));
         return Ok(budgets);
     }
 

@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Common.Models;
@@ -16,6 +17,9 @@ public record GetExpensesQuery : IRequest<PaginatedList<ExpenseDto>>
     public int PageNumber { get; init; } = 1;
     public int PageSize { get; init; } = 10;
     public string Language { get; init; } = "en";
+    /// <summary>When set, amounts are converted to this currency and <see cref="ExpenseDto.Currency"/> reflects it.</summary>
+    [FromQuery(Name = "currency")]
+    public string? TargetCurrency { get; init; }
 }
 
 public class GetExpensesQueryValidator : AbstractValidator<GetExpensesQuery>
@@ -30,13 +34,20 @@ public class GetExpensesQueryValidator : AbstractValidator<GetExpensesQuery>
 
 public class GetExpensesQueryHandler : IRequestHandler<GetExpensesQuery, PaginatedList<ExpenseDto>>
 {
+    private const string DefaultCurrency = "TRY";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrencyExchangeService _currencyService;
 
-    public GetExpensesQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public GetExpensesQueryHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ICurrencyExchangeService currencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _currencyService = currencyService;
     }
 
     public async Task<PaginatedList<ExpenseDto>> Handle(GetExpensesQuery request, CancellationToken cancellationToken)
@@ -66,21 +77,57 @@ public class GetExpensesQueryHandler : IRequestHandler<GetExpensesQuery, Paginat
 
         var orderedQuery = query.OrderByDescending(e => e.TransactionDate);
 
-        var expensesQuery = orderedQuery.Select(e => new ExpenseDto(
-            e.Id,
-            e.Description,
-            e.Amount,
-            e.PaymentMethod,
-            e.IsRecurring,
-            e.TransactionDate,
-            e.CategoryId,
-            useTr ? e.Category.NameTr : e.Category.NameEn,
-            e.Currency ?? "TRY"));
+        var targetCurrency = request.TargetCurrency?.Trim();
+        if (string.IsNullOrEmpty(targetCurrency))
+        {
+            var expensesQuery = orderedQuery.Select(e => new ExpenseDto(
+                e.Id,
+                e.Description,
+                e.Amount,
+                e.PaymentMethod,
+                e.IsRecurring,
+                e.TransactionDate,
+                e.CategoryId,
+                useTr ? e.Category.NameTr : e.Category.NameEn,
+                e.Currency ?? DefaultCurrency));
 
-        return await PaginatedList<ExpenseDto>.CreateAsync(
-            expensesQuery,
-            request.PageNumber,
-            request.PageSize,
-            cancellationToken);
+            return await PaginatedList<ExpenseDto>.CreateAsync(
+                expensesQuery,
+                request.PageNumber,
+                request.PageSize,
+                cancellationToken);
+        }
+
+        targetCurrency = targetCurrency.ToUpperInvariant();
+
+        var count = await orderedQuery.CountAsync(cancellationToken);
+        var page = await orderedQuery
+            .Skip((request.PageNumber - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = new List<ExpenseDto>(page.Count);
+        foreach (var e in page)
+        {
+            var source = string.IsNullOrWhiteSpace(e.Currency) ? DefaultCurrency : e.Currency.ToUpperInvariant();
+            var amount = e.Amount;
+            if (!string.Equals(source, targetCurrency, StringComparison.Ordinal))
+            {
+                amount = await _currencyService.ConvertAsync(e.Amount, source, targetCurrency, cancellationToken);
+            }
+
+            items.Add(new ExpenseDto(
+                e.Id,
+                e.Description,
+                amount,
+                e.PaymentMethod,
+                e.IsRecurring,
+                e.TransactionDate,
+                e.CategoryId,
+                useTr ? e.Category.NameTr : e.Category.NameEn,
+                targetCurrency));
+        }
+
+        return new PaginatedList<ExpenseDto>(items, count, request.PageNumber, request.PageSize);
     }
 }

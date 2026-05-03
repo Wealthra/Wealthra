@@ -28,7 +28,8 @@ public class GetGoalByIdQueryHandler : IRequestHandler<GetGoalByIdQuery, GoalDto
                 g.CurrentAmount,
                 g.TargetAmount > 0 ? (g.CurrentAmount / g.TargetAmount) * 100 : 0,
                 g.Deadline,
-                g.CurrentAmount >= g.TargetAmount))
+                g.CurrentAmount >= g.TargetAmount,
+                g.Currency ?? "TRY"))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (goal == null)
