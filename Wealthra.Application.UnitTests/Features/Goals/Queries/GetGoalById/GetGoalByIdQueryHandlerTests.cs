@@ -12,14 +12,21 @@ namespace Wealthra.Application.UnitTests.Features.Goals.Queries.GetGoalById;
 public class GetGoalByIdQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICurrencyExchangeService> _mockCurrencyService;
+    private readonly Mock<IDisplayCurrencyService> _mockDisplayCurrencyService;
 
     private readonly GetGoalByIdQueryHandler _handler;
 
     public GetGoalByIdQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCurrencyService = new Mock<ICurrencyExchangeService>();
+        _mockDisplayCurrencyService = new Mock<IDisplayCurrencyService>();
+        _mockDisplayCurrencyService
+            .Setup(x => x.GetEffectiveCurrencyAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("TRY");
 
-        _handler = new GetGoalByIdQueryHandler(_mockContext.Object);
+        _handler = new GetGoalByIdQueryHandler(_mockContext.Object, _mockCurrencyService.Object, _mockDisplayCurrencyService.Object);
     }
 
     [Fact]

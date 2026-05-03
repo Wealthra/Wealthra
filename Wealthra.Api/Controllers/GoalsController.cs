@@ -30,9 +30,9 @@ public class GoalsController : ApiControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<GoalDto>> GetById(int id)
+    public async Task<ActionResult<GoalDto>> GetById(int id, [FromQuery] string? currency = null)
     {
-        var goal = await Mediator.Send(new GetGoalByIdQuery(id));
+        var goal = await Mediator.Send(new GetGoalByIdQuery(id, currency));
         return Ok(goal);
     }
 

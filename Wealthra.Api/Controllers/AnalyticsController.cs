@@ -10,7 +10,10 @@ namespace Wealthra.Api.Controllers
     public class AnalyticsController : ApiControllerBase
     {
         [HttpGet("metrics")]
-        public async Task<ActionResult<List<MonthlyCategoryMetricDto>>> GetMetrics([FromQuery] int year, [FromQuery] int month)
+        public async Task<ActionResult<List<MonthlyCategoryMetricDto>>> GetMetrics(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? currency = null)
         {
             if (year == 0 || month == 0)
             {
@@ -22,7 +25,8 @@ namespace Wealthra.Api.Controllers
             var query = new GetMonthlyCategoryMetricsQuery
             {
                 Year = year,
-                Month = month
+                Month = month,
+                TargetCurrency = currency
             };
 
             var metrics = await Mediator.Send(query);

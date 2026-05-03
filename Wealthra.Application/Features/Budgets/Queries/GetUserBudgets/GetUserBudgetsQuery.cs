@@ -17,40 +17,25 @@ public class GetUserBudgetsQueryHandler : IRequestHandler<GetUserBudgetsQuery, L
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
 
     public GetUserBudgetsQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICurrencyExchangeService currencyService)
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<List<BudgetDto>> Handle(GetUserBudgetsQuery request, CancellationToken cancellationToken)
     {
         var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
-        var targetCurrency = request.TargetCurrency?.Trim();
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
 
-        if (string.IsNullOrEmpty(targetCurrency))
-        {
-            return await _context.Budgets
-                .Include(b => b.Category)
-                .Where(b => b.CreatedBy == _currentUserService.UserId)
-                .Select(b => new BudgetDto(
-                    b.Id,
-                    b.LimitAmount,
-                    b.CurrentAmount,
-                    b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
-                    GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
-                    b.CategoryId,
-                    useTr ? b.Category.NameTr : b.Category.NameEn,
-                    b.Currency ?? DefaultCurrency))
-                .ToListAsync(cancellationToken);
-        }
-
-        targetCurrency = targetCurrency.ToUpperInvariant();
         var budgets = await _context.Budgets
             .Include(b => b.Category)
             .Where(b => b.CreatedBy == _currentUserService.UserId)

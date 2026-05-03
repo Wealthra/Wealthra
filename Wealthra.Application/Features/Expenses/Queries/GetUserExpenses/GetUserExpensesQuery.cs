@@ -39,15 +39,18 @@ public class GetUserExpensesQueryHandler : IRequestHandler<GetUserExpensesQuery,
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
 
     public GetUserExpensesQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICurrencyExchangeService currencyService)
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<PaginatedList<ExpenseDto>> Handle(GetUserExpensesQuery request, CancellationToken cancellationToken)
@@ -76,29 +79,7 @@ public class GetUserExpensesQueryHandler : IRequestHandler<GetUserExpensesQuery,
         }
 
         var orderedQuery = query.OrderByDescending(e => e.TransactionDate);
-
-        var targetCurrency = request.TargetCurrency?.Trim();
-        if (string.IsNullOrEmpty(targetCurrency))
-        {
-            var expensesQuery = orderedQuery.Select(e => new ExpenseDto(
-                e.Id,
-                e.Description,
-                e.Amount,
-                e.PaymentMethod,
-                e.IsRecurring,
-                e.TransactionDate,
-                e.CategoryId,
-                useTr ? e.Category.NameTr : e.Category.NameEn,
-                e.Currency ?? DefaultCurrency));
-
-            return await PaginatedList<ExpenseDto>.CreateAsync(
-                expensesQuery,
-                request.PageNumber,
-                request.PageSize,
-                cancellationToken);
-        }
-
-        targetCurrency = targetCurrency.ToUpperInvariant();
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
 
         var count = await orderedQuery.CountAsync(cancellationToken);
         var page = await orderedQuery

@@ -2,7 +2,8 @@ namespace Wealthra.Application.Features.Statistics.Models;
 
 public record MonthlyTrendsDto(
     int Year,
-    List<MonthlyTrendItem> MonthlyData);
+    List<MonthlyTrendItem> MonthlyData,
+    string Currency);
 
 public record MonthlyTrendItem(
     int Month,

@@ -1,6 +1,6 @@
 using FluentAssertions;
-using MockQueryable.Moq;
 using Moq;
+using Xunit;
 using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Identity.Models;
 using Wealthra.Application.Features.Recommendations.Models;
@@ -12,13 +12,14 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
 {
     public class GetPersonalizedRecommendationsQueryHandlerTests
     {
-        private readonly Mock<IApplicationDbContext> _contextMock = new();
         private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
         private readonly Mock<IHeuristicRecommendationService> _heuristicServiceMock = new();
         private readonly Mock<ICollaborativeRecommendationService> _collaborativeServiceMock = new();
         private readonly Mock<ISemanticTipRecommendationService> _semanticServiceMock = new();
         private readonly Mock<IRecommendationFeatureFlags> _featureFlagsMock = new();
         private readonly Mock<IIdentityService> _identityServiceMock = new();
+        private readonly Mock<IDisplayCurrencyService> _displayCurrencyMock = new();
+        private readonly Mock<IMonthlyCategoryMetricsCalculator> _metricsCalculatorMock = new();
 
         private readonly string _userId = "test-user";
         private readonly DateTime _targetMonth = new(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -28,6 +29,10 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
             _currentUserServiceMock.Setup(x => x.UserId).Returns(_userId);
             _featureFlagsMock.SetupGet(x => x.EnableCollaborativeFiltering).Returns(true);
             _featureFlagsMock.SetupGet(x => x.EnableSemanticTips).Returns(true);
+
+            _displayCurrencyMock
+                .Setup(x => x.GetEffectiveCurrencyAsync(null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("TRY");
 
             var metrics = new List<MonthlyCategoryMetric>
             {
@@ -44,7 +49,10 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
                     PreviousMonthSpend = 700
                 }
             };
-            _contextMock.Setup(x => x.MonthlyCategoryMetrics).Returns(metrics.BuildMockDbSet().Object);
+
+            _metricsCalculatorMock
+                .Setup(x => x.ComputeForMonthAsync(_userId, It.IsAny<int>(), It.IsAny<int>(), "TRY", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(metrics);
 
             _heuristicServiceMock.Setup(x => x.Evaluate(It.IsAny<IReadOnlyCollection<MonthlyCategoryMetric>>(), It.IsAny<string>()))
                 .Returns(new List<RecommendationSignal>
@@ -143,13 +151,14 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Queries.GetPer
         private GetPersonalizedRecommendationsQueryHandler BuildHandler()
         {
             return new GetPersonalizedRecommendationsQueryHandler(
-                _contextMock.Object,
                 _currentUserServiceMock.Object,
                 _heuristicServiceMock.Object,
                 _collaborativeServiceMock.Object,
                 _semanticServiceMock.Object,
                 _featureFlagsMock.Object,
-                _identityServiceMock.Object);
+                _identityServiceMock.Object,
+                _displayCurrencyMock.Object,
+                _metricsCalculatorMock.Object);
         }
     }
 }

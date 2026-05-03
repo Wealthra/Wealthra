@@ -9,40 +9,58 @@ namespace Wealthra.Application.Features.Budgets.Queries.GetBudgetById;
 
 public record GetBudgetByIdQuery(
     int Id,
-    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English) : IRequest<BudgetDto>;
+    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English,
+    string? Currency = null) : IRequest<BudgetDto>;
 
 public class GetBudgetByIdQueryHandler : IRequestHandler<GetBudgetByIdQuery, BudgetDto>
 {
-    private readonly IApplicationDbContext _context;
+    private const string DefaultCurrency = "TRY";
 
-    public GetBudgetByIdQueryHandler(IApplicationDbContext context)
+    private readonly IApplicationDbContext _context;
+    private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
+
+    public GetBudgetByIdQueryHandler(
+        IApplicationDbContext context,
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
+        _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<BudgetDto> Handle(GetBudgetByIdQuery request, CancellationToken cancellationToken)
     {
         var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
-        var budget = await _context.Budgets
-            .Include(b => b.Category)
-            .Where(b => b.Id == request.Id)
-            .Select(b => new BudgetDto(
-                b.Id,
-                b.LimitAmount,
-                b.CurrentAmount,
-                b.LimitAmount > 0 ? (b.CurrentAmount / b.LimitAmount) * 100 : 0,
-                GetBudgetStatus(b.CurrentAmount, b.LimitAmount),
-                b.CategoryId,
-                useTr ? b.Category.NameTr : b.Category.NameEn,
-                b.Currency ?? "TRY"))
-            .FirstOrDefaultAsync(cancellationToken);
+        var b = await _context.Budgets
+            .Include(x => x.Category)
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-        if (budget == null)
+        if (b == null)
         {
             throw new NotFoundException(nameof(Domain.Entities.Budget), request.Id);
         }
 
-        return budget;
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.Currency, cancellationToken);
+        var source = string.IsNullOrWhiteSpace(b.Currency) ? DefaultCurrency : b.Currency.ToUpperInvariant();
+        var limit = b.LimitAmount;
+        var current = b.CurrentAmount;
+        if (!string.Equals(source, targetCurrency, StringComparison.Ordinal))
+        {
+            limit = await _currencyService.ConvertAsync(b.LimitAmount, source, targetCurrency, cancellationToken);
+            current = await _currencyService.ConvertAsync(b.CurrentAmount, source, targetCurrency, cancellationToken);
+        }
+
+        return new BudgetDto(
+            b.Id,
+            limit,
+            current,
+            limit > 0 ? (current / limit) * 100 : 0,
+            GetBudgetStatus(current, limit),
+            b.CategoryId,
+            useTr ? b.Category.NameTr : b.Category.NameEn,
+            targetCurrency);
     }
 
     private static string GetBudgetStatus(decimal currentAmount, decimal limitAmount)

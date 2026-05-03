@@ -19,15 +19,21 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly IHeuristicRecommendationService _heuristicRecommendationService;
+        private readonly IDisplayCurrencyService _displayCurrencyService;
+        private readonly IMonthlyCategoryMetricsCalculator _metricsCalculator;
 
         public AnalyzeSpendingAnomaliesCommandHandler(
             IApplicationDbContext context,
             ICurrentUserService currentUserService,
-            IHeuristicRecommendationService heuristicRecommendationService)
+            IHeuristicRecommendationService heuristicRecommendationService,
+            IDisplayCurrencyService displayCurrencyService,
+            IMonthlyCategoryMetricsCalculator metricsCalculator)
         {
             _context = context;
             _currentUserService = currentUserService;
             _heuristicRecommendationService = heuristicRecommendationService;
+            _displayCurrencyService = displayCurrencyService;
+            _metricsCalculator = metricsCalculator;
         }
 
         public async Task<List<string>> Handle(AnalyzeSpendingAnomaliesCommand request, CancellationToken cancellationToken)
@@ -38,16 +44,18 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
             var targetMonth = new DateTime(request.Year, request.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var generatedAlerts = new List<string>();
 
-            // Fetch current month's calculated metrics from the SQL View
-            var metrics = await _context.MonthlyCategoryMetrics
-                .Where(m => m.UserId == userId && m.Month == targetMonth)
-                .ToListAsync(cancellationToken);
+            var effective = await _displayCurrencyService.GetEffectiveCurrencyAsync(null, cancellationToken);
+            var metrics = await _metricsCalculator.ComputeForMonthAsync(
+                userId,
+                request.Year,
+                request.Month,
+                effective,
+                cancellationToken);
 
-            // Fetch existing alerts for this month to prevent spamming
             var existingAlerts = await _context.Notifications
-                .Where(n => n.UserId == userId && 
-                            n.Type == NotificationType.Alert && 
-                            n.CreatedOn.Year == targetMonth.Year && 
+                .Where(n => n.UserId == userId &&
+                            n.Type == NotificationType.Alert &&
+                            n.CreatedOn.Year == targetMonth.Year &&
                             n.CreatedOn.Month == targetMonth.Month)
                 .ToListAsync(cancellationToken);
 
@@ -95,7 +103,6 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
-            // If no new alerts were generated this run, return existing alerts for this month so the client sees them
             if (!generatedAlerts.Any() && existingAlerts.Any())
             {
                 return existingAlerts.Select(n => isTurkish ? n.MessageTr : n.MessageEn).ToList();

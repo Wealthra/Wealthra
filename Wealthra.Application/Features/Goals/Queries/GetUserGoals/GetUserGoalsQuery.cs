@@ -14,15 +14,18 @@ public class GetUserGoalsQueryHandler : IRequestHandler<GetUserGoalsQuery, List<
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
 
     public GetUserGoalsQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICurrencyExchangeService currencyService)
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<List<GoalDto>> Handle(GetUserGoalsQuery request, CancellationToken cancellationToken)
@@ -32,25 +35,7 @@ public class GetUserGoalsQueryHandler : IRequestHandler<GetUserGoalsQuery, List<
             .OrderBy(g => g.Deadline)
             .ToListAsync(cancellationToken);
 
-        var targetCurrency = request.TargetCurrency?.Trim();
-        if (string.IsNullOrEmpty(targetCurrency))
-        {
-            return goals.ConvertAll(g =>
-            {
-                var c = string.IsNullOrWhiteSpace(g.Currency) ? DefaultCurrency : g.Currency.ToUpperInvariant();
-                return new GoalDto(
-                    g.Id,
-                    g.Name,
-                    g.TargetAmount,
-                    g.CurrentAmount,
-                    g.TargetAmount > 0 ? (g.CurrentAmount / g.TargetAmount) * 100 : 0,
-                    g.Deadline,
-                    g.CurrentAmount >= g.TargetAmount,
-                    c);
-            });
-        }
-
-        targetCurrency = targetCurrency.ToUpperInvariant();
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
         var list = new List<GoalDto>(goals.Count);
         foreach (var g in goals)
         {

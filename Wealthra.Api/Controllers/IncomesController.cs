@@ -30,9 +30,9 @@ public class IncomesController : ApiControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<IncomeDto>> GetById(int id)
+    public async Task<ActionResult<IncomeDto>> GetById(int id, [FromQuery] string? currency = null)
     {
-        var income = await Mediator.Send(new GetIncomeByIdQuery(id));
+        var income = await Mediator.Send(new GetIncomeByIdQuery(id, currency));
         return Ok(income);
     }
 

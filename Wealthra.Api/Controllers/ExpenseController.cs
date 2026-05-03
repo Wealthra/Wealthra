@@ -166,14 +166,14 @@ namespace Wealthra.Api.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ExpenseDto>> GetById(int id, [FromQuery] string language = "en")
+        public async Task<ActionResult<ExpenseDto>> GetById(int id, [FromQuery] string language = "en", [FromQuery] string? currency = null)
         {
             if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
             {
                 return BadRequest("Invalid language. Use 'en' or 'tr'.");
             }
 
-            var expense = await Mediator.Send(new GetExpenseByIdQuery(id, categoryLanguage));
+            var expense = await Mediator.Send(new GetExpenseByIdQuery(id, categoryLanguage, currency));
             return Ok(expense);
         }
 

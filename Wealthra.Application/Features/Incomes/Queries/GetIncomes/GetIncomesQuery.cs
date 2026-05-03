@@ -25,15 +25,18 @@ public class GetIncomesQueryHandler : IRequestHandler<GetIncomesQuery, Paginated
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
 
     public GetIncomesQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICurrencyExchangeService currencyService)
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<PaginatedList<IncomeDto>> Handle(GetIncomesQuery request, CancellationToken cancellationToken)
@@ -53,27 +56,7 @@ public class GetIncomesQueryHandler : IRequestHandler<GetIncomesQuery, Paginated
         }
 
         var orderedQuery = query.OrderByDescending(i => i.TransactionDate);
-
-        var targetCurrency = request.TargetCurrency?.Trim();
-        if (string.IsNullOrEmpty(targetCurrency))
-        {
-            var incomesQuery = orderedQuery.Select(i => new IncomeDto(
-                i.Id,
-                i.Name,
-                i.Amount,
-                i.Method,
-                i.IsRecurring,
-                i.TransactionDate,
-                i.Currency ?? DefaultCurrency));
-
-            return await PaginatedList<IncomeDto>.CreateAsync(
-                incomesQuery,
-                request.PageNumber,
-                request.PageSize,
-                cancellationToken);
-        }
-
-        targetCurrency = targetCurrency.ToUpperInvariant();
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
 
         var count = await orderedQuery.CountAsync(cancellationToken);
         var page = await orderedQuery

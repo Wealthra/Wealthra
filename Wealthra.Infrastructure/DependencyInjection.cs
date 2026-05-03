@@ -111,6 +111,8 @@ namespace Wealthra.Infrastructure
             services.AddHttpClient<FrankfurterExchangeService>();
             services.AddScoped<FrankfurterExchangeService>();
             services.AddScoped<ICurrencyExchangeService, ChainedCurrencyExchangeService>();
+            services.AddScoped<IDisplayCurrencyService, DisplayCurrencyService>();
+            services.AddScoped<IMonthlyCategoryMetricsCalculator, MonthlyCategoryMetricsCalculator>();
 
             // 5. Services
             services.AddTransient<DateTimeService>();

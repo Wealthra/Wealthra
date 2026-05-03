@@ -42,26 +42,26 @@ public class BudgetsController : ApiControllerBase
     }
 
     [HttpGet("monthly")]
-    public async Task<ActionResult<MonthlyBudgetSummaryDto>> GetMonthly([FromQuery] string language = "en")
+    public async Task<ActionResult<MonthlyBudgetSummaryDto>> GetMonthly([FromQuery] string language = "en", [FromQuery] string? currency = null)
     {
         if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
         {
             return BadRequest("Invalid language. Use 'en' or 'tr'.");
         }
 
-        var result = await Mediator.Send(new GetMonthlyBudgetQuery(categoryLanguage));
+        var result = await Mediator.Send(new GetMonthlyBudgetQuery(categoryLanguage, currency));
         return Ok(result);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<BudgetDto>> GetById(int id, [FromQuery] string language = "en")
+    public async Task<ActionResult<BudgetDto>> GetById(int id, [FromQuery] string language = "en", [FromQuery] string? currency = null)
     {
         if (!CategoryLanguageParser.TryParse(language, out var categoryLanguage))
         {
             return BadRequest("Invalid language. Use 'en' or 'tr'.");
         }
 
-        var budget = await Mediator.Send(new GetBudgetByIdQuery(id, categoryLanguage));
+        var budget = await Mediator.Send(new GetBudgetByIdQuery(id, categoryLanguage, currency));
         return Ok(budget);
     }
 

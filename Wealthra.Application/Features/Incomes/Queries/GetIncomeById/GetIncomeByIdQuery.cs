@@ -6,36 +6,50 @@ using Wealthra.Application.Features.Incomes.Models;
 
 namespace Wealthra.Application.Features.Incomes.Queries.GetIncomeById;
 
-public record GetIncomeByIdQuery(int Id) : IRequest<IncomeDto>;
+public record GetIncomeByIdQuery(int Id, string? Currency = null) : IRequest<IncomeDto>;
 
 public class GetIncomeByIdQueryHandler : IRequestHandler<GetIncomeByIdQuery, IncomeDto>
 {
-    private readonly IApplicationDbContext _context;
+    private const string DefaultCurrency = "TRY";
 
-    public GetIncomeByIdQueryHandler(IApplicationDbContext context)
+    private readonly IApplicationDbContext _context;
+    private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
+
+    public GetIncomeByIdQueryHandler(
+        IApplicationDbContext context,
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
+        _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<IncomeDto> Handle(GetIncomeByIdQuery request, CancellationToken cancellationToken)
     {
-        var income = await _context.Incomes
-            .Where(i => i.Id == request.Id)
-            .Select(i => new IncomeDto(
-                i.Id,
-                i.Name,
-                i.Amount,
-                i.Method,
-                i.IsRecurring,
-                i.TransactionDate,
-                i.Currency ?? "TRY"))
-            .FirstOrDefaultAsync(cancellationToken);
+        var i = await _context.Incomes.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-        if (income == null)
+        if (i == null)
         {
             throw new NotFoundException(nameof(Domain.Entities.Income), request.Id);
         }
 
-        return income;
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.Currency, cancellationToken);
+        var source = string.IsNullOrWhiteSpace(i.Currency) ? DefaultCurrency : i.Currency.ToUpperInvariant();
+        var amount = i.Amount;
+        if (!string.Equals(source, targetCurrency, StringComparison.Ordinal))
+        {
+            amount = await _currencyService.ConvertAsync(i.Amount, source, targetCurrency, cancellationToken);
+        }
+
+        return new IncomeDto(
+            i.Id,
+            i.Name,
+            amount,
+            i.Method,
+            i.IsRecurring,
+            i.TransactionDate,
+            targetCurrency);
     }
 }

@@ -24,4 +24,5 @@ public record MonthlyBudgetSummaryDto(
     int TotalBudgets,
     int BudgetsExceeded,
     int BudgetsOnWarning,
-    List<MonthlyBudgetCategoryDto> CategoryBreakdown);
+    List<MonthlyBudgetCategoryDto> CategoryBreakdown,
+    string Currency);

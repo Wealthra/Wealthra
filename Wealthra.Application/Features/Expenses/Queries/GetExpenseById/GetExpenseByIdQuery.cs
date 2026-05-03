@@ -9,40 +9,56 @@ namespace Wealthra.Application.Features.Expenses.Queries.GetExpenseById;
 
 public record GetExpenseByIdQuery(
     int Id,
-    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English) : IRequest<ExpenseDto>;
+    CategoryDisplayLanguage CategoryLanguage = CategoryDisplayLanguage.English,
+    string? Currency = null) : IRequest<ExpenseDto>;
 
 public class GetExpenseByIdQueryHandler : IRequestHandler<GetExpenseByIdQuery, ExpenseDto>
 {
-    private readonly IApplicationDbContext _context;
+    private const string DefaultCurrency = "TRY";
 
-    public GetExpenseByIdQueryHandler(IApplicationDbContext context)
+    private readonly IApplicationDbContext _context;
+    private readonly ICurrencyExchangeService _currencyService;
+    private readonly IDisplayCurrencyService _displayCurrencyService;
+
+    public GetExpenseByIdQueryHandler(
+        IApplicationDbContext context,
+        ICurrencyExchangeService currencyService,
+        IDisplayCurrencyService displayCurrencyService)
     {
         _context = context;
+        _currencyService = currencyService;
+        _displayCurrencyService = displayCurrencyService;
     }
 
     public async Task<ExpenseDto> Handle(GetExpenseByIdQuery request, CancellationToken cancellationToken)
     {
         var useTr = request.CategoryLanguage == CategoryDisplayLanguage.Turkish;
-        var expense = await _context.Expenses
-            .Include(e => e.Category)
-            .Where(e => e.Id == request.Id)
-            .Select(e => new ExpenseDto(
-                e.Id,
-                e.Description,
-                e.Amount,
-                e.PaymentMethod,
-                e.IsRecurring,
-                e.TransactionDate,
-                e.CategoryId,
-                useTr ? e.Category.NameTr : e.Category.NameEn,
-                e.Currency ?? "TRY"))
-            .FirstOrDefaultAsync(cancellationToken);
+        var e = await _context.Expenses
+            .Include(x => x.Category)
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-        if (expense == null)
+        if (e == null)
         {
             throw new NotFoundException(nameof(Domain.Entities.Expense), request.Id);
         }
 
-        return expense;
+        var targetCurrency = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.Currency, cancellationToken);
+        var source = string.IsNullOrWhiteSpace(e.Currency) ? DefaultCurrency : e.Currency.ToUpperInvariant();
+        var amount = e.Amount;
+        if (!string.Equals(source, targetCurrency, StringComparison.Ordinal))
+        {
+            amount = await _currencyService.ConvertAsync(e.Amount, source, targetCurrency, cancellationToken);
+        }
+
+        return new ExpenseDto(
+            e.Id,
+            e.Description,
+            amount,
+            e.PaymentMethod,
+            e.IsRecurring,
+            e.TransactionDate,
+            e.CategoryId,
+            useTr ? e.Category.NameTr : e.Category.NameEn,
+            targetCurrency);
     }
 }
