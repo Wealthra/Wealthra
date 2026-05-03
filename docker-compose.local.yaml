@@ -31,14 +31,14 @@ services:
       - ExtractionServices__CopilotBaseUrl=http://copilot:8000/
       - ExtractionServices__TimeoutSeconds=120
       - Groq__ApiKey=${GROQ_API_KEY}
-      - Smtp__Host=${Smtp__Host:-}
-      - Smtp__Port=${Smtp__Port:-587}
-      - Smtp__UseSsl=${Smtp__UseSsl:-false}
-      - Smtp__Tls=${Smtp__Tls:-}
-      - Smtp__Username=${Smtp__Username:-}
-      - Smtp__Password=${Smtp__Password:-}
-      - Smtp__FromEmail=${Smtp__FromEmail:-}
-      - Smtp__FromName=${Smtp__FromName:-Wealthra}
+      - Smtp__Host=${Smtp_Host:-}
+      - Smtp__Port=${Smtp_Port:-587}
+      - Smtp__UseSsl=${Smtp_UseSsl:-false}
+      - Smtp__Tls=${Smtp_Tls:-}
+      - Smtp__Username=${Smtp_Username:-}
+      - Smtp__Password=${Smtp_Password:-}
+      - Smtp__FromEmail=${Smtp_FromEmail:-}
+      - Smtp__FromName=${Smtp_FromName:-Wealthra}
     depends_on:
       - db
       - ocr
