@@ -4,6 +4,7 @@ using Wealthra.Application.Common.Interfaces;
 using Wealthra.Application.Features.Recommendations.Models;
 using Wealthra.Domain.Entities;
 using Wealthra.Domain.Enums;
+using Wealthra.Application.Features.Notifications.Models;
 
 namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpendingAnomalies
 {
@@ -21,19 +22,22 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
         private readonly IHeuristicRecommendationService _heuristicRecommendationService;
         private readonly IDisplayCurrencyService _displayCurrencyService;
         private readonly IMonthlyCategoryMetricsCalculator _metricsCalculator;
+        private readonly INotificationRealtimeService _notificationRealtimeService;
 
         public AnalyzeSpendingAnomaliesCommandHandler(
             IApplicationDbContext context,
             ICurrentUserService currentUserService,
             IHeuristicRecommendationService heuristicRecommendationService,
             IDisplayCurrencyService displayCurrencyService,
-            IMonthlyCategoryMetricsCalculator metricsCalculator)
+            IMonthlyCategoryMetricsCalculator metricsCalculator,
+            INotificationRealtimeService notificationRealtimeService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _heuristicRecommendationService = heuristicRecommendationService;
             _displayCurrencyService = displayCurrencyService;
             _metricsCalculator = metricsCalculator;
+            _notificationRealtimeService = notificationRealtimeService;
         }
 
         public async Task<List<string>> Handle(AnalyzeSpendingAnomaliesCommand request, CancellationToken cancellationToken)
@@ -62,6 +66,8 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
             var signalsEn = _heuristicRecommendationService.Evaluate(metrics, "en");
             var signalsTr = _heuristicRecommendationService.Evaluate(metrics, "tr");
             var trSignalsByKey = signalsTr.ToDictionary(GetSignalKey, s => s);
+
+            var newNotifications = new List<Notification>();
 
             foreach (var signalEn in signalsEn)
             {
@@ -94,6 +100,7 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
 
                     _context.Notifications.Add(notification);
                     existingAlerts.Add(notification);
+                    newNotifications.Add(notification);
                     generatedAlerts.Add(isTurkish ? msgTr : msgEn);
                 }
             }
@@ -101,6 +108,19 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
             if (generatedAlerts.Any())
             {
                 await _context.SaveChangesAsync(cancellationToken);
+
+                foreach (var n in newNotifications)
+                {
+                    var dto = new NotificationDto(
+                        n.Id,
+                        isTurkish ? n.MessageTr : n.MessageEn,
+                        n.Type,
+                        n.IsRead,
+                        n.CreatedOn,
+                        n.RelatedEntityId);
+
+                    await _notificationRealtimeService.SendNotificationAsync(userId, dto, cancellationToken);
+                }
             }
 
             if (!generatedAlerts.Any() && existingAlerts.Any())

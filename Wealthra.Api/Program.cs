@@ -38,6 +38,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthPolicies.AdminOnly, policy => policy.RequireRole(elevated));
 });
 builder.Services.AddScoped<IAdminRealtimeService, SignalRAdminRealtimeService>();
+builder.Services.AddScoped<INotificationRealtimeService, SignalRNotificationRealtimeService>();
 builder.Services.AddHostedService<AdminSnapshotHostedService>();
 
 builder.Services.AddCors(options =>
@@ -200,6 +201,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<AdminRealtimeHub>("/hubs/admin");
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // 5. Database Migration and Seeding
 using (var scope = app.Services.CreateScope())
