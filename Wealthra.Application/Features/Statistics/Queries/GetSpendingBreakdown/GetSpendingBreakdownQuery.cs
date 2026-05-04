@@ -13,6 +13,7 @@ public record GetSpendingBreakdownQuery : IRequest<SpendingBreakdownDto>
     public DateTime? EndDate { get; init; }
     [FromQuery(Name = "currency")]
     public string? TargetCurrency { get; init; }
+    public string Language { get; init; } = "en";
 }
 
 public class GetSpendingBreakdownQueryValidator : AbstractValidator<GetSpendingBreakdownQuery>
@@ -51,6 +52,7 @@ public class GetSpendingBreakdownQueryHandler : IRequestHandler<GetSpendingBreak
         var startDate = request.StartDate ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
         var endDate = request.EndDate ?? DateTime.UtcNow;
         var effective = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
+        var isTr = string.Equals(request.Language, "tr", StringComparison.OrdinalIgnoreCase);
 
         var expenses = await _context.Expenses
             .Include(e => e.Category)
@@ -71,7 +73,7 @@ public class GetSpendingBreakdownQueryHandler : IRequestHandler<GetSpendingBreak
 
             if (!convertedByCategory.TryGetValue(e.CategoryId, out var cur))
             {
-                cur = (e.Category.NameEn, 0, 0);
+                cur = (isTr ? e.Category.NameTr : e.Category.NameEn, 0, 0);
             }
 
             convertedByCategory[e.CategoryId] = (cur.Name, cur.Amount + amt, cur.Count + 1);

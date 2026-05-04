@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -75,13 +76,14 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
 
         CategoryLanguageParser.TryParse(request.Language, out var categoryLanguage);
         var useTr = categoryLanguage == CategoryDisplayLanguage.Turkish;
+        var culture = useTr ? new CultureInfo("tr-TR") : new CultureInfo("en-US");
 
         var groupedExpenses = request.Period switch
         {
-            "Weekly" => GroupByWeek(expenses, now, useTr),
-            "Monthly" => GroupByMonth(expenses, now, useTr),
+            "Weekly" => GroupByWeek(expenses, now, useTr, culture),
+            "Monthly" => GroupByMonth(expenses, now, useTr, culture),
             "Yearly" => GroupByYear(expenses, now, useTr),
-            _ => GroupByMonth(expenses, now, useTr)
+            _ => GroupByMonth(expenses, now, useTr, culture)
         };
 
         return groupedExpenses;
@@ -90,7 +92,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
     private static string CategoryLabel(Domain.Entities.Expense e, bool useTr) =>
         useTr ? e.Category.NameTr : e.Category.NameEn;
 
-    private List<ExpenseSummaryDto> GroupByWeek(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr)
+    private List<ExpenseSummaryDto> GroupByWeek(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr, CultureInfo culture)
     {
         var last12Weeks = Enumerable.Range(0, 12)
             .Select(i => now.AddDays(-i * 7).Date)
@@ -102,8 +104,12 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
             var weekEnd = weekStart.AddDays(7);
             var weekExpenses = expenses.Where(e => e.TransactionDate >= weekStart && e.TransactionDate < weekEnd).ToList();
 
+            var label = useTr
+                ? $"{weekStart.ToString("dd MMM", culture)} Haftası"
+                : $"Week of {weekStart.ToString("MMM dd", culture)}";
+
             return new ExpenseSummaryDto(
-                $"Week of {weekStart:MMM dd}",
+                label,
                 weekExpenses.Sum(e => e.Amount),
                 weekExpenses.Count,
                 weekExpenses.GroupBy(e => CategoryLabel(e, useTr))
@@ -112,7 +118,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
         }).ToList();
     }
 
-    private List<ExpenseSummaryDto> GroupByMonth(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr)
+    private List<ExpenseSummaryDto> GroupByMonth(List<Domain.Entities.Expense> expenses, DateTime now, bool useTr, CultureInfo culture)
     {
         var last12Months = Enumerable.Range(0, 12)
             .Select(i => now.AddMonths(-i).Date)
@@ -126,7 +132,7 @@ public class GetExpenseSummaryQueryHandler : IRequestHandler<GetExpenseSummaryQu
                 e.TransactionDate.Month == monthStart.Month).ToList();
 
             return new ExpenseSummaryDto(
-                monthStart.ToString("MMMM yyyy"),
+                monthStart.ToString("MMMM yyyy", culture),
                 monthExpenses.Sum(e => e.Amount),
                 monthExpenses.Count,
                 monthExpenses.GroupBy(e => CategoryLabel(e, useTr))

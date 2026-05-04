@@ -13,6 +13,7 @@ public record GetMonthlyTrendsQuery : IRequest<MonthlyTrendsDto>
     public int? Year { get; init; }
     [FromQuery(Name = "currency")]
     public string? TargetCurrency { get; init; }
+    public string Language { get; init; } = "en";
 }
 
 public class GetMonthlyTrendsQueryValidator : AbstractValidator<GetMonthlyTrendsQuery>
@@ -52,6 +53,8 @@ public class GetMonthlyTrendsQueryHandler : IRequestHandler<GetMonthlyTrendsQuer
     {
         var year = request.Year ?? DateTime.UtcNow.Year;
         var effective = await _displayCurrencyService.GetEffectiveCurrencyAsync(request.TargetCurrency, cancellationToken);
+        var isTr = string.Equals(request.Language, "tr", StringComparison.OrdinalIgnoreCase);
+        var culture = isTr ? new CultureInfo("tr-TR") : new CultureInfo("en-US");
 
         var expenses = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId &&
@@ -94,7 +97,7 @@ public class GetMonthlyTrendsQueryHandler : IRequestHandler<GetMonthlyTrendsQuer
             }
 
             var netAmount = monthIncomes - monthExpenses;
-            var monthName = new DateTime(year, month, 1).ToString("MMMM", CultureInfo.InvariantCulture);
+            var monthName = new DateTime(year, month, 1).ToString("MMMM", culture);
 
             monthlyData.Add(new MonthlyTrendItem(
                 month,

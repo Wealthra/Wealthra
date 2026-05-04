@@ -158,7 +158,8 @@ public class GetDashboardWebQueryHandler : IRequestHandler<GetDashboardWebQuery,
                 .Select(g => new CurrencyTotal(g.Key, g.Sum(x => x.Amount)))
                 .ToList();
             var expense = await ConvertGroupedTotalAsync(expenseGroups, prefCurrency, cancellationToken);
-            var label = monthStart.ToString("MMM yyyy", CultureInfo.InvariantCulture);
+            var culture = useTr ? new CultureInfo("tr-TR") : new CultureInfo("en-US");
+            var label = monthStart.ToString("MMM yyyy", culture);
             trendPoints.Add(new DashboardWebIncomeExpensePointDto(label, income, expense));
         }
 
