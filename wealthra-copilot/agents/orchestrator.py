@@ -57,34 +57,32 @@ logger = logging.getLogger(__name__)
 _MESSAGES = {
     "confirm_single": {
         "en": (
-            "I'm ready to record your **{desc}** expense of **{amount} TL** "
+            "I'm ready to record your **{desc}** expense of **{amount} {curr}** "
             "under the **{cat}** category. Do you confirm?"
         ),
         "tr": (
-            "**{desc}** harcamanızı **{amount} TL** olarak **{cat}** "
+            "**{desc}** harcamanızı **{amount} {curr}** olarak **{cat}** "
             "kategorisine kaydetmeye hazırım. Onaylıyor musunuz?"
         ),
     },
     "confirm_income": {
         "en": (
-            "I'm ready to record your income of **{amount} TL** "
+            "I'm ready to record your income of **{amount} {curr}** "
             "(**{desc}**). Do you confirm?"
         ),
         "tr": (
-            "**{amount} TL** tutarındaki gelirinizi (**{desc}**) "
+            "**{amount} {curr}** tutarındaki gelirinizi (**{desc}**) "
             "kaydetmeye hazırım. Onaylıyor musunuz?"
         ),
     },
     "confirm_batch": {
         "en": (
-            "I'm ready to record the following **{count} transactions** "
-            "(total: **{total} TL**):\n\n{item_list}\n\n"
-            "Do you confirm all of them?"
+            "I'm ready to record the following **{count} transactions**:\n\n"
+            "{item_list}\n\nDo you confirm all of them?"
         ),
         "tr": (
-            "Aşağıdaki **{count} işlemi** kaydetmeye hazırım "
-            "(toplam: **{total} TL**):\n\n{item_list}\n\n"
-            "Hepsini onaylıyor musunuz?"
+            "Aşağıdaki **{count} işlemi** kaydetmeye hazırım:\n\n"
+            "{item_list}\n\nHepsini onaylıyor musunuz?"
         ),
     },
     "missing_info": {
@@ -96,8 +94,8 @@ _MESSAGES = {
         "tr": "✅ İşleminiz başarıyla kaydedildi!",
     },
     "confirmed_batch": {
-        "en": "✅ All **{count} transactions** have been saved successfully! (Total: **{total} TL**)",
-        "tr": "✅ **{count} işlemin** tamamı başarıyla kaydedildi! (Toplam: **{total} TL**)",
+        "en": "✅ All **{count} transactions** have been saved successfully!",
+        "tr": "✅ **{count} işlemin** tamamı başarıyla kaydedildi!",
     },
     "confirm_failed": {
         "en": "⚠️ I couldn't save the transaction right now. Please try again later.",
@@ -392,12 +390,14 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
                     "confirm_income", lang,
                     desc=item.description or "—",
                     amount=item.amount,
+                    curr=item.currency,
                 )
             else:
                 msg = _msg(
                     "confirm_single", lang,
                     desc=item.description or "—",
                     amount=item.amount,
+                    curr=item.currency,
                     cat=item.category_name or "—",
                 )
         else:
@@ -407,13 +407,12 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
                 cat_str = f" [{item.category_name}]" if item.category_name else ""
                 lines.append(
                     f"  {i}. **{item.description or '—'}** — "
-                    f"{item.amount} TL{cat_str}"
+                    f"{item.amount} {item.currency}{cat_str}"
                 )
             item_list = "\n".join(lines)
             msg = _msg(
                 "confirm_batch", lang,
                 count=len(batch.items),
-                total=batch.total_amount,
                 item_list=item_list,
             )
 
@@ -498,15 +497,24 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
         confirmed = self._is_confirmation(request.message)
         cancelled = self._is_cancellation(request.message)
 
-        if confirmed and session.batch and session.batch.items:
+        if confirmed and (session.batch or request.updated_batch):
+            # Use updated batch from frontend if provided (prioritize it for edits)
+            # Otherwise use the one from session
+            batch_to_save = request.updated_batch or session.batch
+            
+            if not batch_to_save or not batch_to_save.items:
+                 # Should not happen but safety check
+                 await self.session_store.clear(request.user_id)
+                 return ChatResponse(type=ResponseType.ERROR, message=_msg("confirm_failed", lang), language=lang)
+
             # Persist all items in the batch
             result = await self.rag_specialist.persist_batch(
-                session.batch,
+                batch_to_save,
                 request.user_id,
                 session.auth_token or request.auth_token,
             )
 
-            saved_batch = session.batch
+            saved_batch = batch_to_save
             pending_action = session.pending_action
 
             # Reset session
