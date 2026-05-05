@@ -1,3 +1,4 @@
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
@@ -13,6 +14,20 @@ namespace Wealthra.Application.Features.Recommendations.Commands.AnalyzeSpending
         public int Year { get; set; }
         public int Month { get; set; }
         public string Language { get; set; } = "en";
+    }
+
+    public class AnalyzeSpendingAnomaliesCommandValidator : AbstractValidator<AnalyzeSpendingAnomaliesCommand>
+    {
+        public AnalyzeSpendingAnomaliesCommandValidator()
+        {
+            RuleFor(v => v.Year)
+                .InclusiveBetween(2000, 2100)
+                .WithMessage("Year must be between 2000 and 2100.");
+
+            RuleFor(v => v.Month)
+                .InclusiveBetween(1, 12)
+                .WithMessage("Month must be between 1 and 12.");
+        }
     }
 
     public class AnalyzeSpendingAnomaliesCommandHandler : IRequestHandler<AnalyzeSpendingAnomaliesCommand, List<string>>

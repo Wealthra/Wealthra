@@ -37,6 +37,10 @@ namespace Wealthra.Application.Features.Expenses.Commands.CreateExpense
 
             RuleFor(v => v.CategoryId)
                 .GreaterThan(0);
+
+            RuleFor(v => v.TransactionDate)
+                .NotEmpty()
+                .WithMessage("Transaction date is required.");
         }
     }
 

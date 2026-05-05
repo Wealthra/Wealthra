@@ -21,6 +21,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
         private readonly Mock<ICurrentUserService> _currentUserServiceMock;
         private readonly Mock<IDisplayCurrencyService> _displayCurrencyMock;
         private readonly Mock<IMonthlyCategoryMetricsCalculator> _metricsCalculatorMock;
+        private readonly Mock<INotificationRealtimeService> _notificationRealtimeServiceMock;
         private readonly IHeuristicRecommendationService _heuristicRecommendationService;
         private readonly AnalyzeSpendingAnomaliesCommandHandler _handler;
 
@@ -30,6 +31,7 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
             _currentUserServiceMock = new Mock<ICurrentUserService>();
             _displayCurrencyMock = new Mock<IDisplayCurrencyService>();
             _metricsCalculatorMock = new Mock<IMonthlyCategoryMetricsCalculator>();
+            _notificationRealtimeServiceMock = new Mock<INotificationRealtimeService>();
             _heuristicRecommendationService = new HeuristicRecommendationService();
 
             _displayCurrencyMock
@@ -41,7 +43,8 @@ namespace Wealthra.Application.UnitTests.Features.Recommendations.Commands.Analy
                 _currentUserServiceMock.Object,
                 _heuristicRecommendationService,
                 _displayCurrencyMock.Object,
-                _metricsCalculatorMock.Object);
+                _metricsCalculatorMock.Object,
+                _notificationRealtimeServiceMock.Object);
         }
 
         [Fact]
