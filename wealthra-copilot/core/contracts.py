@@ -51,7 +51,8 @@ class ChatRequest(BaseModel):
     """Incoming chat request from the API layer."""
     message: str
     user_id: str
-    auth_token: Optional[str] = None  # User JWT for forwarding to .NET API
+    auth_token: Optional[str] = None              # User JWT for forwarding to .NET API
+    updated_batch: Optional['TransactionBatch'] = None  # Frontend-edited data to persist
 
 
 class ChatResponse(BaseModel):
@@ -76,6 +77,7 @@ class TransactionDraft(BaseModel):
     category_id: Optional[int] = None
     date: Optional[str] = None                    # YYYY-MM-DD
     payment_method: Optional[str] = None
+    currency: str = "TRY"
     is_recurring: bool = False
 
     def get_missing_fields(self) -> List[str]:

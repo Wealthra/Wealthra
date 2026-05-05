@@ -145,8 +145,8 @@ class RAGSpecialist:
         Merges with existing session batch for multi-turn info gathering.
         Does NOT persist — returns batch for confirmation flow.
         """
-        # Fetch available categories from DB
-        categories_str = self._fetch_categories()
+        # Fetch available categories from DB (localized)
+        categories_str = self._fetch_categories(lang)
 
         prompt = f"""
 Extract ALL financial transactions from the following message.
@@ -162,16 +162,23 @@ CRITICAL RULES:
 2. Determine if each item is an EXPENSE or INCOME:
    - Expenses: spending, buying, paying, harcama, ödeme, fatura, harcadım
    - Income: salary, payment received, earning, maaş, gelir, kazanç
-3. category_name MUST exactly match one of the existing categories.
-4. If the date is not mentioned, use null (system will default to today).
-5. ALWAYS return an array, even for a single transaction.
-6. Return ONLY the JSON — no explanation, no foreign characters in strings.
+3. category_name MUST exactly match one of the existing categories provided above.
+   Pick the category that best fits the description.
+4. Extract the CURRENCY (e.g., "TRY", "USD", "EUR", "GBP").
+   - Default to "TRY" if not mentioned.
+   - Map "dolar", "dollar", "$" to "USD".
+   - Map "euro", "€" to "EUR".
+   - Map "tl", "lira", "₺" to "TRY".
+5. If the date is not mentioned, use null (system will default to today).
+6. ALWAYS return an array, even for a single transaction.
+7. Return ONLY the JSON — no explanation, no foreign characters in strings.
 
 Return JSON array:
 [
     {{
         "transaction_type": "expense" or "income",
         "amount": number or null,
+        "currency": "TRY", "USD", "EUR", etc.,
         "description": string or null,
         "category_name": string (from existing categories) or null,
         "date": string (YYYY-MM-DD) or null,
@@ -267,6 +274,7 @@ JSON:
         payload = {
             "description": draft.description or "",
             "amount": draft.amount,
+            "currency": draft.currency,
             "paymentMethod": draft.payment_method or "Cash",
             "isRecurring": draft.is_recurring,
             "transactionDate": draft.date or self._today_iso(),
@@ -284,6 +292,7 @@ JSON:
         payload = {
             "name": draft.description or "",
             "amount": draft.amount,
+            "currency": draft.currency,
             "method": draft.payment_method or "Cash",
             "isRecurring": draft.is_recurring,
             "transactionDate": draft.date or self._today_iso(),
@@ -297,14 +306,19 @@ JSON:
     # Private helpers
     # -----------------------------------------------------------------------
 
-    def _fetch_categories(self) -> str:
-        """Fetch available categories from the database."""
+    def _fetch_categories(self, lang: str = "en") -> str:
+        """Fetch available categories from the database in the target language."""
         db = SessionLocal()
         try:
             result = db.execute(
                 text('SELECT "NameEn", "NameTr" FROM "Categories"')
             )
-            categories = [f"{row[0]} ({row[1]})" for row in result]
+            # Use NameTr for Turkish, NameEn for others
+            if lang == "tr":
+                categories = [row[1] for row in result]
+            else:
+                categories = [row[0] for row in result]
+
             return (
                 ", ".join(categories)
                 if categories
@@ -380,6 +394,8 @@ JSON:
             merged.date = new.date
         if new.payment_method is not None:
             merged.payment_method = new.payment_method
+        if new.currency is not None:
+            merged.currency = new.currency
         if new.transaction_type != TransactionType.EXPENSE:
             merged.transaction_type = new.transaction_type
 

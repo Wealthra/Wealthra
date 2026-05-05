@@ -66,7 +66,8 @@ namespace Wealthra.Infrastructure
                     {
                         var accessToken = context.Request.Query["access_token"];
                         var path = context.HttpContext.Request.Path;
-                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/admin"))
+                        if (!string.IsNullOrEmpty(accessToken) && 
+                            (path.StartsWithSegments("/hubs/admin") || path.StartsWithSegments("/hubs/notifications")))
                         {
                             context.Token = accessToken;
                         }

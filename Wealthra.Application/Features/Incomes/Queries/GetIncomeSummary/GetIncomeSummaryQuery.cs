@@ -1,7 +1,9 @@
+using System.Globalization;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Wealthra.Application.Common.Interfaces;
+using Wealthra.Application.Features.Categories.Models;
 using Wealthra.Application.Features.Incomes.Models;
 
 namespace Wealthra.Application.Features.Incomes.Queries.GetIncomeSummary;
@@ -10,6 +12,7 @@ public record GetIncomeSummaryQuery : IRequest<List<IncomeSummaryDto>>
 {
     public string Period { get; init; } = "Monthly";
     public string? TargetCurrency { get; init; }
+    public string Language { get; init; } = "en";
 }
 
 public class GetIncomeSummaryQueryValidator : AbstractValidator<GetIncomeSummaryQuery>
@@ -19,6 +22,10 @@ public class GetIncomeSummaryQueryValidator : AbstractValidator<GetIncomeSummary
         RuleFor(v => v.Period)
             .Must(p => p == "Weekly" || p == "Monthly" || p == "Yearly")
             .WithMessage("Period must be Weekly, Monthly, or Yearly.");
+
+        RuleFor(v => v.Language)
+            .Must(l => CategoryLanguageParser.TryParse(l, out _))
+            .WithMessage("Invalid language. Use 'en' or 'tr'.");
     }
 }
 
@@ -66,18 +73,22 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
             i.Amount = await _currencyService.ConvertAsync(i.Amount, sourceCurrency, prefCurrency, cancellationToken);
         }
 
+        CategoryLanguageParser.TryParse(request.Language, out var categoryLanguage);
+        var useTr = categoryLanguage == CategoryDisplayLanguage.Turkish;
+        var culture = useTr ? new CultureInfo("tr-TR") : new CultureInfo("en-US");
+
         var groupedIncomes = request.Period switch
         {
-            "Weekly" => GroupByWeek(incomes, now),
-            "Monthly" => GroupByMonth(incomes, now),
+            "Weekly" => GroupByWeek(incomes, now, useTr, culture),
+            "Monthly" => GroupByMonth(incomes, now, culture),
             "Yearly" => GroupByYear(incomes, now),
-            _ => GroupByMonth(incomes, now)
+            _ => GroupByMonth(incomes, now, culture)
         };
 
         return groupedIncomes;
     }
 
-    private List<IncomeSummaryDto> GroupByWeek(List<Domain.Entities.Income> incomes, DateTime now)
+    private List<IncomeSummaryDto> GroupByWeek(List<Domain.Entities.Income> incomes, DateTime now, bool useTr, CultureInfo culture)
     {
         var last12Weeks = Enumerable.Range(0, 12)
             .Select(i => now.AddDays(-i * 7).Date)
@@ -89,15 +100,19 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
             var weekEnd = weekStart.AddDays(7);
             var weekIncomes = incomes.Where(i => i.TransactionDate >= weekStart && i.TransactionDate < weekEnd).ToList();
 
+            var label = useTr
+                ? $"{weekStart.ToString("dd MMM", culture)} Haftası"
+                : $"Week of {weekStart.ToString("MMM dd", culture)}";
+
             return new IncomeSummaryDto(
-                $"Week of {weekStart:MMM dd}",
+                label,
                 weekIncomes.Sum(i => i.Amount),
                 weekIncomes.Count
             );
         }).ToList();
     }
 
-    private List<IncomeSummaryDto> GroupByMonth(List<Domain.Entities.Income> incomes, DateTime now)
+    private List<IncomeSummaryDto> GroupByMonth(List<Domain.Entities.Income> incomes, DateTime now, CultureInfo culture)
     {
         var last12Months = Enumerable.Range(0, 12)
             .Select(i => now.AddMonths(-i).Date)
@@ -111,7 +126,7 @@ public class GetIncomeSummaryQueryHandler : IRequestHandler<GetIncomeSummaryQuer
                 i.TransactionDate.Month == monthStart.Month).ToList();
 
             return new IncomeSummaryDto(
-                monthStart.ToString("MMMM yyyy"),
+                monthStart.ToString("MMMM yyyy", culture),
                 monthIncomes.Sum(i => i.Amount),
                 monthIncomes.Count
             );
