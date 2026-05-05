@@ -127,6 +127,7 @@ namespace Wealthra.Infrastructure
             services.AddScoped<IRuntimeAppSettings, RuntimeAppSettingsService>();
             services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
             services.AddScoped<IEmailSender, EmailService>();
+            services.AddScoped<IEmailTemplateService, EmailTemplateService>();
             services.AddScoped<IReportExportService, ReportExportService>();
 
             // 6. Expense extraction gateways

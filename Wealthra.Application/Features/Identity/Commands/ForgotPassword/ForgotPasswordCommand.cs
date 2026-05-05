@@ -20,17 +20,20 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     private readonly IIdentityService _identityService;
     private readonly ICacheService _cacheService;
     private readonly IEmailSender _emailSender;
+    private readonly IEmailTemplateService _templateService;
     private readonly IAdminRealtimeService _adminRealtimeService;
 
     public ForgotPasswordCommandHandler(
         IIdentityService identityService,
         ICacheService cacheService,
         IEmailSender emailSender,
+        IEmailTemplateService templateService,
         IAdminRealtimeService adminRealtimeService)
     {
         _identityService = identityService;
         _cacheService = cacheService;
         _emailSender = emailSender;
+        _templateService = templateService;
         _adminRealtimeService = adminRealtimeService;
     }
 
@@ -62,7 +65,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         await _cacheService.SetAsync($"password-reset:{normalizedEmail}", cacheEntry, TimeSpan.FromMinutes(15), cancellationToken);
         await _cacheService.SetAsync(cooldownKey, cacheEntry, TimeSpan.FromMinutes(1), cancellationToken);
 
-        var body = $"<p>Your Wealthra password reset code is: <strong>{code}</strong></p><p>This code expires in 15 minutes.</p>";
+        var body = _templateService.GenerateForgotPasswordEmail(code, 15);
         await _emailSender.SendEmailAsync(normalizedEmail, "Wealthra password reset code", body, cancellationToken);
         await _adminRealtimeService.PublishActivityAsync("auth.password-reset.requested", $"Password reset requested for {normalizedEmail}.", null, cancellationToken);
 
