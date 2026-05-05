@@ -40,16 +40,18 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
 
             await EnsureGlobalCategoriesAsync(db);
 
-            var users = await userManager.Users.ToListAsync();
+            // Only seed demo data for the known demo user — not every user in the system
+            var user = await userManager.FindByEmailAsync("user@wealthra.local");
+            if (user == null) return;
+
             var now = DateTime.UtcNow;
             var cat = await GetCategoryMapAsync(db);
 
-            foreach (var user in users)
             {
                 var userId = user.Id;
 
                 // Skip if user already has seeded data
-                if (await db.Expenses.AnyAsync(e => e.CreatedBy == userId)) continue;
+                if (await db.Expenses.AnyAsync(e => e.CreatedBy == userId)) return;
 
                 var food = cat["Food & Dining"];
                 var transport = cat["Transport"];
@@ -325,7 +327,9 @@ namespace Wealthra.Infrastructure.Persistence.Seeding
         /// <summary>Corrects CreatedBy/LastModifiedBy that were overwritten with 'System' by the SaveChanges auditing interceptor.</summary>
         private static Task FixCreatedBy(ApplicationDbContext db, string tableName, string userId)
         {
-            string sql = $"UPDATE \"{tableName}\" SET \"CreatedBy\" = {{0}}, \"LastModifiedBy\" = {{0}} WHERE \"CreatedBy\" = 'System'";
+            // Scope the fix to only records that were just inserted (CreatedBy = 'System')
+            // AND have no real owner yet, by also checking LastModifiedBy to avoid cross-user contamination.
+            string sql = $"UPDATE \"{tableName}\" SET \"CreatedBy\" = {{0}}, \"LastModifiedBy\" = {{0}} WHERE \"CreatedBy\" = 'System' AND \"LastModifiedBy\" = 'System'";
             return db.Database.ExecuteSqlRawAsync(sql, userId);
         }
         private static Income MakeIncome(string name, decimal amount, string method, bool isRecurring, DateTime date)
