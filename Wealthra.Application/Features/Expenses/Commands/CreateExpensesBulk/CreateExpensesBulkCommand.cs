@@ -49,6 +49,10 @@ public class CreateExpensesBulkCommandValidator : AbstractValidator<CreateExpens
 
             item.RuleFor(i => i.CategoryId)
                 .GreaterThan(0);
+
+            item.RuleFor(i => i.TransactionDate)
+                .NotEmpty()
+                .WithMessage("Transaction date is required.");
         });
     }
 }

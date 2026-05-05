@@ -56,14 +56,17 @@ public class GetMonthlyTrendsQueryHandler : IRequestHandler<GetMonthlyTrendsQuer
         var isTr = string.Equals(request.Language, "tr", StringComparison.OrdinalIgnoreCase);
         var culture = isTr ? new CultureInfo("tr-TR") : new CultureInfo("en-US");
 
+        var start = new DateTime(year, 1, 1);
+        var end = new DateTime(year + 1, 1, 1);
+
         var expenses = await _context.Expenses
             .Where(e => e.CreatedBy == _currentUserService.UserId &&
-                       e.TransactionDate.Year == year)
+                       e.TransactionDate >= start && e.TransactionDate < end)
             .ToListAsync(cancellationToken);
 
         var incomes = await _context.Incomes
             .Where(i => i.CreatedBy == _currentUserService.UserId &&
-                       i.TransactionDate.Year == year)
+                       i.TransactionDate >= start && i.TransactionDate < end)
             .ToListAsync(cancellationToken);
 
         var monthlyData = new List<MonthlyTrendItem>();
