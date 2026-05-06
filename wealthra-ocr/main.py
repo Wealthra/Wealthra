@@ -11,6 +11,7 @@ from ocr import run_ocr
 class ExtractedExpense(BaseModel):
     description: str
     amount: float
+    currency: str = "TRY"
     date: datetime | None = None
     category_hint: str | None = None
     confidence: float | None = None
@@ -49,19 +50,43 @@ async def extract_expenses_from_image(
             except ValueError:
                 parsed_date = None
 
+        receipt_currency = (receipt.currency or "").strip().upper()
+        if not receipt_currency:
+            receipt_currency = "TRY"
+
         expenses: list[ExtractedExpense] = []
+        items_sum = 0.0
         for item in receipt.items or []:
             if item.price is None:
                 continue
+            price = float(item.price)
+            items_sum += price
             expenses.append(
                 ExtractedExpense(
                     description=item.item_name or "Unknown item",
-                    amount=float(item.price),
+                    amount=price,
+                    currency=receipt_currency,
                     date=parsed_date,
                     category_hint="receipt",
                     confidence=0.8,
                 )
             )
+
+        if receipt.total_amount is not None:
+            final_total = float(receipt.total_amount)
+            missing_money = round(final_total - items_sum, 2)
+            if missing_money > 0.05:
+                merchant = receipt.merchant_name or "Receipt"
+                expenses.append(
+                    ExtractedExpense(
+                        description=f"Tax & Tip ({merchant})",
+                        amount=missing_money,
+                        currency=receipt_currency,
+                        date=parsed_date,
+                        category_hint="Fees & Taxes",
+                        confidence=0.9,
+                    )
+                )
 
         return ExtractExpensesResponse(expenses=expenses)
     except Exception as ex:

@@ -6,9 +6,9 @@ class ReceiptItem(BaseModel):
     )
     price: float | None = Field(
         description=(
-            "The full line amount for this item INCLUDING any taxes, "
-            "exactly as printed on the receipt. Do NOT subtract tax from "
-            "this value even if the receipt also lists a separate tax_amount."
+            "The line amount for this item exactly as printed next to that "
+            "product. Do NOT include receipt-level tax, tip, or service "
+            "charges here if they appear only below a subtotal."
         )
     )
 
@@ -23,10 +23,17 @@ class Receipt(BaseModel):
     time: str | None = Field(
         description="Time of the transaction, as printed on the receipt."
     )
+    currency: str | None = Field(
+        description=(
+            "ISO 4217 currency code for this receipt (e.g. USD, TRY, EUR). "
+            "Infer from symbols such as $, ₺, €, £ or explicit text."
+        )
+    )
     total_amount: float | None = Field(
         description=(
-            "Total amount paid on the receipt INCLUDING all taxes and fees, "
-            "as printed near the bottom."
+            "The absolute final amount charged/paid on the receipt, including "
+            "all taxes, tips, and fees — the number that should match the "
+            "card or cash total."
         )
     )
     tax_amount: float | None = Field(
@@ -40,8 +47,9 @@ class Receipt(BaseModel):
     )
     items: list[ReceiptItem] | None = Field(
         description=(
-            "List of line items on the receipt. Each item's price must match "
-            "the line total on the receipt and must not be adjusted by the "
-            "receipt-level tax_amount."
+            "Physical products and priced dish/drink lines only. Do NOT add "
+            "separate rows for tax, tip, gratuity, or service charge if they "
+            "only appear after a subtotal; those are captured via total_amount "
+            "minus the sum of these items."
         )
     )

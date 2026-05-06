@@ -14,7 +14,7 @@ load_dotenv()
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Define model ids (env-overridable for demo tuning)
-AUDIO_MODEL = os.environ.get("STT_AUDIO_MODEL", "whisper-large-v3-turbo")
+AUDIO_MODEL = os.environ.get("STT_AUDIO_MODEL", "whisper-large-v3")
 STT_LLM_DEFAULT = os.environ.get("STT_LLM_MODEL", "openai/gpt-oss-120b")
 
 

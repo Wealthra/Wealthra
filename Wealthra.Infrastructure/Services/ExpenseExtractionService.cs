@@ -115,7 +115,8 @@ namespace Wealthra.Infrastructure.Services
                     Date = x.Date,
                     CategoryHint = x.CategoryHint,
                     Confidence = x.Confidence is null ? null : Convert.ToDecimal(x.Confidence.Value, CultureInfo.InvariantCulture),
-                    Source = x.Source ?? "unknown"
+                    Source = x.Source ?? "unknown",
+                    Currency = string.IsNullOrWhiteSpace(x.Currency) ? null : x.Currency.Trim().ToUpperInvariant()
                 });
 
             return mapped.ToList();
@@ -159,6 +160,9 @@ namespace Wealthra.Infrastructure.Services
 
             [JsonPropertyName("source")]
             public string? Source { get; set; }
+
+            [JsonPropertyName("currency")]
+            public string? Currency { get; set; }
         }
     }
 }

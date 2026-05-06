@@ -197,7 +197,8 @@ namespace Wealthra.Infrastructure.Services
                         SuggestedCategoryId = categoryId,
                         CategorySuggestion = categoryName,
                         Confidence = 0.85m,
-                        Source = "ocr+groq"
+                        Source = "ocr+groq",
+                        Currency = source.Currency
                     });
                 }
 
