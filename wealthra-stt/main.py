@@ -21,6 +21,7 @@ STT_LLM_DEFAULT = os.environ.get("STT_LLM_MODEL", "openai/gpt-oss-120b")
 class ExtractedExpense(BaseModel):
     description: str
     amount: float
+    currency: str = "TRY"
     date: datetime | None = None
     category_hint: str | None = None
     confidence: float | None = None
@@ -66,6 +67,7 @@ Existing categories: {categories or 'General, Food, Market, Travel, Health, Ente
 Rules:
 1. Translate descriptions into the language of the transcript.
 2. If the user mentions an overall total, use it to infer missing item prices, but do not log the "total" as a separate expense.
+3. For every expense, set `currency` to ISO 4217 (uppercase): USD if they say dollar/dolar/$; TRY for lira/TL/₺/türk lirası; EUR for euro/€; GBP for pound/sterlin/£; otherwise match explicit codes or infer from strong context. If the amount has no currency clue, use TRY.
 
 Transcript:
 {transcript_text}
@@ -90,7 +92,14 @@ Transcript:
     content = response.choices[0].message.content
     if not content:
         raise ValueError("Empty response from model.")
-    return ExtractExpensesResponse.model_validate_json(content)
+    parsed = ExtractExpensesResponse.model_validate_json(content)
+    normalized: list[ExtractedExpense] = []
+    for exp in parsed.expenses:
+        code = (exp.currency or "").strip().upper()
+        if not code:
+            code = "TRY"
+        normalized.append(exp.model_copy(update={"currency": code}))
+    return ExtractExpensesResponse(expenses=normalized)
 
 
 app = FastAPI(title="Wealthra STT Service")
