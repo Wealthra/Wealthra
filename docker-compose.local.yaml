@@ -31,6 +31,7 @@ services:
       - ExtractionServices__CopilotBaseUrl=http://copilot:8000/
       - ExtractionServices__TimeoutSeconds=120
       - Groq__ApiKey=${GROQ_API_KEY}
+      - Groq__Model=${GROQ_MODEL:-openai/gpt-oss-120b}
       - Smtp__Host=${Smtp_Host:-}
       - Smtp__Port=${Smtp_Port:-587}
       - Smtp__UseSsl=${Smtp_UseSsl:-false}
@@ -58,6 +59,7 @@ services:
     restart: unless-stopped
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - OCR_MODEL=${OCR_MODEL:-meta-llama/llama-4-scout-17b-16e-instruct}
     ports:
       - "8001:8000"
 
@@ -70,6 +72,8 @@ services:
     restart: unless-stopped
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - STT_AUDIO_MODEL=${STT_AUDIO_MODEL:-whisper-large-v3-turbo}
+      - STT_LLM_MODEL=${STT_LLM_MODEL:-openai/gpt-oss-120b}
     ports:
       - "8002:8000"
 
@@ -83,6 +87,8 @@ services:
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - DATABASE_URL=postgresql://wealthra_user:YourStrongDbPassword123!@db:5432/wealthra_db
+      - MODEL_FAST=${COPILOT_MODEL_FAST:-qwen/qwen3-32b}
+      - MODEL_REASONING=${COPILOT_MODEL_REASONING:-groq/compound}
     depends_on:
       - db
     ports:

@@ -8,7 +8,7 @@ load_dotenv()
 
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL_ID = "meta-llama/llama-4-scout-17b-16e-instruct"
+MODEL_ID = os.getenv("OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 
 def run_ocr(image_path: str, categories: str | None = None) -> Receipt:

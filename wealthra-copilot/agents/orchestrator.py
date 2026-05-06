@@ -198,20 +198,22 @@ class Orchestrator:
     to the appropriate specialist module.
     """
 
-    def __init__(self):
+    def __init__(self, model_fast: str | None = None, model_reasoning: str | None = None):
+        fast_model = model_fast or settings.MODEL_FAST
+        reasoning_model = model_reasoning or settings.MODEL_REASONING
         # Fast model: intent classification, small talk, JSON extraction
         self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=settings.MODEL_FAST,
+            model_name=fast_model,
         )
         # Reasoning model: narrative synthesis, complex analysis
         self.llm_reasoning = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=settings.MODEL_REASONING,
+            model_name=reasoning_model,
         )
         self.session_store = SessionStore()
-        self.rag_specialist = RAGSpecialist()
-        self.consultant = ConsultantSpecialist()
+        self.rag_specialist = RAGSpecialist(model_fast=fast_model, model_reasoning=reasoning_model)
+        self.consultant = ConsultantSpecialist(model_reasoning=reasoning_model)
         self.lang_detector = LanguageDetector()
 
     # ===================================================================

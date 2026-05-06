@@ -29,10 +29,11 @@ logger = logging.getLogger(__name__)
 class ConsultantSpecialist:
     """Analyzes raw financial data and produces structured advice."""
 
-    def __init__(self):
+    def __init__(self, model_reasoning: str | None = None):
+        reasoning_model = model_reasoning or settings.MODEL_REASONING
         self.llm = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=settings.MODEL_REASONING,
+            model_name=reasoning_model,
         )
 
     async def analyze(

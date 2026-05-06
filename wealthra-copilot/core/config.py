@@ -7,12 +7,12 @@ class Settings(BaseSettings):
 
     # ── Model tier configuration ──────────────────────────────────────
     # Fast: simple tasks (intent classification, JSON extraction, small talk)
-    #   → llama-3.1-8b-instant: 30 RPM, 500K tokens/day
-    MODEL_FAST: str = "llama-3.1-8b-instant"
+    # Demo default favors stronger extraction/intent quality over cost.
+    MODEL_FAST: str = "qwen/qwen3-32b"
 
     # Reasoning: complex tasks (SQL generation, financial analysis, narrative)
-    #   → llama-4-scout-17b: 30 RPM, 500K tokens/day, 30K tokens/min
-    MODEL_REASONING: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # Demo default prioritizes highest perceived intelligence for short sessions.
+    MODEL_REASONING: str = "groq/compound"
     
     class Config:
         case_sensitive = True

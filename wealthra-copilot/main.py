@@ -49,15 +49,19 @@ app = FastAPI(
 # Shared orchestrator instance
 # ---------------------------------------------------------------------------
 
-_orchestrator: Optional[Orchestrator] = None
+_orchestrators: dict[str, Orchestrator] = {}
 
 
-def _get_orchestrator() -> Orchestrator:
-    """Lazy-init singleton orchestrator."""
-    global _orchestrator
-    if _orchestrator is None:
-        _orchestrator = Orchestrator()
-    return _orchestrator
+def _get_orchestrator(default_chat_model: Optional[str] = None) -> Orchestrator:
+    """Lazy-init orchestrator instances keyed by reasoning model."""
+    reasoning_model = (
+        default_chat_model.strip()
+        if default_chat_model and default_chat_model.strip()
+        else settings.MODEL_REASONING
+    )
+    if reasoning_model not in _orchestrators:
+        _orchestrators[reasoning_model] = Orchestrator(model_reasoning=reasoning_model)
+    return _orchestrators[reasoning_model]
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +78,7 @@ def health_check():
 async def chat(
     message: str,
     user_id: str,
+    default_chat_model: Optional[str] = None,
     authorization: Optional[str] = Header(default=None),
 ):
     """
@@ -97,6 +102,6 @@ async def chat(
         auth_token=auth_token,
     )
 
-    orchestrator = _get_orchestrator()
+    orchestrator = _get_orchestrator(default_chat_model=default_chat_model)
     response = await orchestrator.process(request)
     return response

@@ -15,9 +15,9 @@ load_dotenv()
 # Initialize the Groq client automatically using the key from .env
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Define our two models
-AUDIO_MODEL = "whisper-large-v3-turbo"
-LLM_MODEL = "llama-3.1-8b-instant"
+# Define model ids (env-overridable for demo tuning)
+AUDIO_MODEL = os.environ.get("STT_AUDIO_MODEL", "whisper-large-v3-turbo")
+LLM_MODEL = os.environ.get("STT_LLM_MODEL", "openai/gpt-oss-120b")
 
 
 def process_audio_file(audio_file_path: str, categories: str | None = None) -> dict:
@@ -35,7 +35,7 @@ def process_audio_file(audio_file_path: str, categories: str | None = None) -> d
 
     transcript_text = transcription.text
     print(f"Transcription complete! Length: {len(transcript_text)} characters.")
-    print("Handing off to Llama 3.1 for structuring...\n")
+    print(f"Handing off to {LLM_MODEL} for structuring...\n")
 
     prompt = f"""
     You are an expert finance extraction assistant.

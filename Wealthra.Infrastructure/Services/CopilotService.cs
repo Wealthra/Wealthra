@@ -4,6 +4,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Wealthra.Application.Common.Constants;
 using Wealthra.Application.Common.Interfaces;
 
 namespace Wealthra.Infrastructure.Services
@@ -11,16 +13,32 @@ namespace Wealthra.Infrastructure.Services
     public class CopilotService : ICopilotService
     {
         private readonly HttpClient _httpClient;
+        private readonly IRuntimeAppSettings _runtimeAppSettings;
+        private readonly IConfiguration _configuration;
 
-        public CopilotService(IHttpClientFactory httpClientFactory)
+        public CopilotService(
+            IHttpClientFactory httpClientFactory,
+            IRuntimeAppSettings runtimeAppSettings,
+            IConfiguration configuration)
         {
             _httpClient = httpClientFactory.CreateClient("CopilotClient");
+            _runtimeAppSettings = runtimeAppSettings;
+            _configuration = configuration;
         }
 
         public async Task<CopilotChatResponse> ChatAsync(string message, string userId, string? authToken = null, CancellationToken cancellationToken = default)
         {
+            var modelFromDb = await _runtimeAppSettings.GetAsync(AppSettingsKeys.AiDefaultChatModel, cancellationToken);
+            var defaultChatModel = !string.IsNullOrWhiteSpace(modelFromDb)
+                ? modelFromDb!
+                : _configuration["Groq:Model"];
+
             // The python service expects message and user_id as query parameters in the POST request
             var url = $"/chat?message={Uri.EscapeDataString(message)}&user_id={Uri.EscapeDataString(userId)}";
+            if (!string.IsNullOrWhiteSpace(defaultChatModel))
+            {
+                url += $"&default_chat_model={Uri.EscapeDataString(defaultChatModel)}";
+            }
             
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
             

@@ -48,16 +48,18 @@ _API_BASE_URL = "http://api:8080/api"
 class RAGSpecialist:
     """The Data Layer — handles all database interactions."""
 
-    def __init__(self):
+    def __init__(self, model_fast: str | None = None, model_reasoning: str | None = None):
+        fast_model = model_fast or settings.MODEL_FAST
+        reasoning_model = model_reasoning or settings.MODEL_REASONING
         # Fast model: JSON extraction for write drafts
         self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=settings.MODEL_FAST,
+            model_name=fast_model,
         )
         # Reasoning model: SQL agent for data queries
         self.llm_reasoning = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=settings.MODEL_REASONING,
+            model_name=reasoning_model,
         )
         self.db = SQLDatabase.from_uri(settings.DATABASE_URL)
 
