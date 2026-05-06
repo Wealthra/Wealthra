@@ -10,8 +10,6 @@ This specialist never touches the database — it only reasons
 over data that has been pre-fetched and injected by the Orchestrator.
 """
 
-import json
-import logging
 from typing import Optional
 
 from langchain_groq import ChatGroq
@@ -20,10 +18,7 @@ from core.config import settings
 from core.contracts import (
     QueryResult,
     ConsultantAdvice,
-    InsightItem,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class ConsultantSpecialist:
@@ -34,7 +29,7 @@ class ConsultantSpecialist:
         self.llm = ChatGroq(
             api_key=settings.GROQ_API_KEY,
             model_name=reasoning_model,
-        )
+        ).with_structured_output(ConsultantAdvice)
 
     async def analyze(
         self,
@@ -52,115 +47,31 @@ class ConsultantSpecialist:
         Output: ConsultantAdvice with insights, warnings, and suggestions
         """
         lang_instruction = (
-            "Tüm metinleri Türkçe olarak yaz. "
-            "Başka dillerden HİÇBİR kelime veya karakter kullanma. "
-            "Çince, Japonca, Vietnamca, Arapça karakterler YASAKTIR."
+            "Lütfen tüm analizleri Türkçe yazın."
             if lang == "tr"
-            else "Write all text in English only. "
-            "Do NOT include ANY characters from other languages or scripts. "
-            "Chinese, Japanese, Vietnamese, Arabic characters are FORBIDDEN."
+            else "Please write all analysis in English."
         )
         score_values = "Good, Needs Attention, Critical" if lang == "en" else "İyi, Dikkat Gerekli, Kritik"
 
-        prompt = f"""You are Owlaris, the premium financial advisor of Wealthra.
+        prompt = f"""You are Owlaris, the premium financial advisor.
+User query: "{message}"
 
-The user asked: "{message}"
-
-Here is the raw financial data from their database:
-{raw_data.summary}
+Data: {raw_data.summary}
 
 {f"Detailed rows: {raw_data.model_dump_json()}" if raw_data.rows else ""}
 
-YOUR TASK:
-Analyze this SPECIFIC financial data and produce a structured JSON response.
-Every insight MUST reference actual numbers from the data above.
-
-You MUST return ONLY a valid JSON object with this exact structure:
-{{
-    "insights": [
-        {{
-            "icon": "📊",
-            "title": "short title",
-            "detail": "1-2 sentence explanation WITH specific numbers/percentages from this user's data"
-        }}
-    ],
-    "warnings": [
-        {{
-            "icon": "⚠️",
-            "title": "short title",
-            "detail": "1-2 sentence explanation WITH specific amounts/ratios"
-        }}
-    ],
-    "suggestions": [
-        {{
-            "icon": "💡",
-            "title": "short title",
-            "detail": "1-2 sentence actionable advice SPECIFIC to this user's spending patterns"
-        }}
-    ],
-    "overall_score": "Good" or "Needs Attention" or "Critical"
-}}
-
-MANDATORY ANALYSIS RULES:
-1. EVERY insight MUST contain a specific number or percentage from the data.
-   BAD: "Your spending is high" → GOOD: "Food spending (3,200 TL) is 42% of your total expenses"
-2. Calculate ratio of each category to total and flag any over 30%.
-3. If income data is available, compute savings rate = (income - expenses) / income × 100.
-4. Compare top 3 spending categories and suggest cutting the highest one with a SPECIFIC target.
-   BAD: "Reduce food spending" → GOOD: "Cut Food from 3,200 TL to 2,500 TL by cooking 3x/week — saves 700 TL/month"
-5. NEVER give generic advice like "increase income" or "save more money".
-   Every suggestion must reference THIS user's actual spending data.
-6. If data is sparse (few categories/amounts), acknowledge what you see and give
-   advice based on the available numbers. Still reference the actual values.
-7. {lang_instruction}
-8. Return ONLY the JSON — no markdown fences, no explanation.
-9. NO REPETITION: Never state the same number or fact in multiple items. Each insight, warning, and suggestion must present DIFFERENT information.
-10. Do NOT invent missing numbers. If a metric is unavailable, skip that metric.
-11. Keep each `title` under 8 words and each `detail` under 220 characters.
-12. `overall_score` must be exactly one of: {score_values}
-
-JSON:
+Task: Provide actionable insights based strictly on the provided numbers.
+1. {lang_instruction}
+2. Every insight MUST contain a specific number or percentage from the data.
+3. Do not repeat the same fact across multiple insights.
+4. Do not invent missing numbers. If a metric is unavailable, skip that metric.
+5. Keep each title under 8 words and each detail under 220 characters.
+6. overall_score must be exactly one of: {score_values}
 """
 
-        response = self.llm.invoke(prompt)
-        return self._parse_advice(response.content, lang)
-
-    def _parse_advice(self, content: str, lang: str) -> ConsultantAdvice:
-        """Parse LLM output into ConsultantAdvice contract."""
-        try:
-            # Clean markdown fences if present
-            cleaned = content.strip()
-            if "```json" in cleaned:
-                cleaned = cleaned.split("```json")[-1].split("```")[0]
-            elif "```" in cleaned:
-                cleaned = cleaned.split("```")[1].split("```")[0]
-
-            data = json.loads(cleaned.strip())
-            overall_score = self._normalize_score(data.get("overall_score"), lang)
-            return ConsultantAdvice(
-                insights=[InsightItem(**i) for i in data.get("insights", [])],
-                warnings=[InsightItem(**w) for w in data.get("warnings", [])],
-                suggestions=[InsightItem(**s) for s in data.get("suggestions", [])],
-                overall_score=overall_score,
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to parse consultant advice JSON: %s — raw: %s", e, content
-            )
-            # Graceful fallback: wrap the raw text as a single insight
-            fallback_title = (
-                "Finansal Analiz" if lang == "tr" else "Financial Analysis"
-            )
-            return ConsultantAdvice(
-                insights=[
-                    InsightItem(
-                        icon="📋",
-                        title=fallback_title,
-                        detail=content[:500],
-                    )
-                ],
-                overall_score="N/A",
-            )
+        result: ConsultantAdvice = self.llm.invoke(prompt)
+        normalized = self._normalize_score(result.overall_score, lang)
+        return result.model_copy(update={"overall_score": normalized})
 
     @staticmethod
     def _normalize_score(score: Optional[str], lang: str) -> str:

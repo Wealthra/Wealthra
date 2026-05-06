@@ -6,13 +6,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str
 
     # ── Model tier configuration ──────────────────────────────────────
-    # Fast: simple tasks (intent classification, JSON extraction, small talk)
-    # Demo default favors stronger extraction/intent quality over cost.
-    MODEL_FAST: str = "qwen/qwen3-32b"
+    # Enrichment Model: Data extraction, intent routing, JSON generation
+    MODEL_FAST: str = "openai/gpt-oss-120b"
 
-    # Reasoning: complex tasks (SQL generation, financial analysis, narrative)
-    # Demo default prioritizes highest perceived intelligence for short sessions.
-    MODEL_REASONING: str = "groq/compound"
+    # Default Chat Model: User conversations, analysis, narrative
+    MODEL_REASONING: str = "llama-3.3-70b-versatile"
     
     class Config:
         case_sensitive = True

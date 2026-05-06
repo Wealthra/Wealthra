@@ -124,19 +124,12 @@ def _msg(key: str, lang: str, **kwargs) -> str:
 
 _LANG_BLOCK = {
     "tr": (
-        "DİL KURALLARI (MUTLAK):\n"
-        "- Yanıtının tamamını yalnızca Türkçe yaz.\n"
-        "- Başka dillerden hiçbir kelime, karakter veya harf KULLANMA.\n"
-        "- Çince, Japonca, Korece, Vietnamca, Arapça veya başka alfabe karakterleri YASAKTIR.\n"
-        "- İngilizce kelimeler YASAKTIR (teknik terimler hariç: TL, API gibi).\n"
-        "- Eğer bir kelimeyi Türkçeye çeviremiyorsan, o kelimeyi hiç kullanma.\n"
+        "Yazım Kuralları: Yanıtınızı doğal, akıcı ve profesyonel bir Türkçe ile yazın. "
+        "Yalnızca Türkçe karakterler ve yaygın finansal terimler (TL, API vb.) kullanın."
     ),
     "en": (
-        "LANGUAGE RULES (ABSOLUTE):\n"
-        "- Write your ENTIRE response in English only.\n"
-        "- Do NOT include ANY characters from other languages or scripts.\n"
-        "- Chinese, Japanese, Korean, Vietnamese, Arabic, or Cyrillic characters are FORBIDDEN.\n"
-        "- Turkish-specific characters (ç, ş, ğ, ı, ö, ü) are FORBIDDEN in English responses.\n"
+        "Writing Rules: Write your response in natural, fluent, and professional English. "
+        "Use standard English vocabulary and formatting."
     ),
 }
 
@@ -683,7 +676,7 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
 
     # ===================================================================
     # HANDLER: Small Talk
-    # Uses: llm_fast (simple persona chat)
+    # Uses: llm_reasoning (conversational chat model)
     # ===================================================================
 
     async def _handle_smalltalk(
@@ -710,7 +703,7 @@ Task:
 
 {lang_block}"""
 
-        response = self.llm_fast.invoke(prompt)
+        response = self.llm_reasoning.invoke(prompt)
 
         session.state = SessionState.IDLE
         await self.session_store.save(request.user_id, session)

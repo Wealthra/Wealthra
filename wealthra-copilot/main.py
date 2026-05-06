@@ -52,16 +52,15 @@ app = FastAPI(
 _orchestrators: dict[str, Orchestrator] = {}
 
 
-def _get_orchestrator(default_chat_model: Optional[str] = None) -> Orchestrator:
-    """Lazy-init orchestrator instances keyed by reasoning model."""
-    reasoning_model = (
-        default_chat_model.strip()
-        if default_chat_model and default_chat_model.strip()
-        else settings.MODEL_REASONING
-    )
-    if reasoning_model not in _orchestrators:
-        _orchestrators[reasoning_model] = Orchestrator(model_reasoning=reasoning_model)
-    return _orchestrators[reasoning_model]
+def _get_orchestrator(chat_model: str, enrichment_model: str) -> Orchestrator:
+    """Lazy-init orchestrator instances keyed by both models."""
+    key = f"{chat_model}::{enrichment_model}"
+    if key not in _orchestrators:
+        _orchestrators[key] = Orchestrator(
+            model_fast=enrichment_model,
+            model_reasoning=chat_model,
+        )
+    return _orchestrators[key]
 
 
 # ---------------------------------------------------------------------------
@@ -79,29 +78,40 @@ async def chat(
     message: str,
     user_id: str,
     default_chat_model: Optional[str] = None,
+    enrichment_model: Optional[str] = None,
     authorization: Optional[str] = Header(default=None),
 ):
     """
     Main chat endpoint.
 
-    Accepts a user message and routes it through the Orchestrator
-    state machine. Optionally accepts an Authorization header with
-    the user's JWT for forwarding to the .NET API during persist.
+    Accepts dynamic model selection from the frontend (chat vs enrichment).
+    Optionally accepts an Authorization header with the user's JWT for
+    forwarding to the .NET API during persist.
     """
-    # Extract Bearer token if present
     auth_token = None
     if authorization:
         if authorization.startswith("Bearer "):
             auth_token = authorization[7:]
         else:
-            # Fallback if user pastes raw JWT without Bearer prefix
             auth_token = authorization
+
     request = ChatRequest(
         message=message,
         user_id=user_id,
         auth_token=auth_token,
     )
 
-    orchestrator = _get_orchestrator(default_chat_model=default_chat_model)
+    c_model = (
+        default_chat_model.strip()
+        if default_chat_model and default_chat_model.strip()
+        else settings.MODEL_REASONING
+    )
+    e_model = (
+        enrichment_model.strip()
+        if enrichment_model and enrichment_model.strip()
+        else settings.MODEL_FAST
+    )
+
+    orchestrator = _get_orchestrator(chat_model=c_model, enrichment_model=e_model)
     response = await orchestrator.process(request)
     return response

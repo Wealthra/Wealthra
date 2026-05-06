@@ -16,7 +16,6 @@ Handles all database interactions through two modes:
            tracking, audit fields, domain events).
 """
 
-import json
 import re
 import logging
 from typing import Optional
@@ -51,11 +50,11 @@ class RAGSpecialist:
     def __init__(self, model_fast: str | None = None, model_reasoning: str | None = None):
         fast_model = model_fast or settings.MODEL_FAST
         reasoning_model = model_reasoning or settings.MODEL_REASONING
-        # Fast model: JSON extraction for write drafts
+        # Fast model: structured extraction for write drafts
         self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
             model_name=fast_model,
-        )
+        ).with_structured_output(TransactionBatch)
         # Reasoning model: SQL agent for data queries
         self.llm_reasoning = ChatGroq(
             api_key=settings.GROQ_API_KEY,
@@ -151,103 +150,21 @@ class RAGSpecialist:
         categories_str = self._fetch_categories(lang)
 
         prompt = f"""
-Extract ALL financial transactions from the following message.
-Return ONLY a valid JSON array — no markdown, no explanation.
-
+Extract financial transactions from the user message.
 Message: "{message}"
+Categories: {categories_str}
 
-Existing Categories: {categories_str}
-
-CRITICAL RULES:
-1. If the message contains MULTIPLE transactions (e.g., "45 TL coffee and 120 TL book"),
-   return EACH as a separate item in the array.
-2. Determine if each item is an EXPENSE or INCOME:
-   - Expenses: spending, buying, paying, harcama, ödeme, fatura, harcadım
-   - Income: salary, payment received, earning, maaş, gelir, kazanç
-3. category_name MUST exactly match one of the existing categories provided above.
-   Pick the category that best fits the description.
-4. Extract the CURRENCY (e.g., "TRY", "USD", "EUR", "GBP").
-   - Default to "TRY" if not mentioned.
-   - Map "dolar", "dollar", "$" to "USD".
-   - Map "euro", "€" to "EUR".
-   - Map "tl", "lira", "₺" to "TRY".
-5. If the date is not mentioned, use null (system will default to today).
-6. ALWAYS return an array, even for a single transaction.
-7. Return ONLY the JSON — no explanation, no foreign characters in strings.
-8. If the message contains an OVERALL TOTAL plus item-level amounts, treat the total as a CHECK,
-   not as a separate transaction line.
-9. If exactly one item amount is missing but an overall total is provided, infer the missing amount:
-   missing_amount = total_amount - sum(other_item_amounts). Only do this when the result is positive.
-10. Keep mathematical consistency: sum of item amounts should match stated overall total when possible.
-11. Ignore narrative filler and storytelling details; extract only transactional facts.
-12. If inference is ambiguous (multiple missing amounts, multiple conflicting totals, or non-positive result),
-    leave ambiguous amount(s) as null instead of guessing.
-
-ROBUST EXTRACTION POLICY (EN + TR):
-- Detect item candidates from both explicit nouns and quantity patterns:
-  "1 water", "2 coffees", "1LT milk", "bir su", "2 kahve", "1 litre süt".
-- Detect total phrases in both languages:
-  "total", "in total", "overall", "all in", "toplam", "totalde", "genel toplam", "tuttu".
-- Do NOT create a separate transaction for "total/toplam" statements.
-- If one line item has known amount and another does not, and one clear total exists, infer by subtraction.
-- Preserve the user's language in descriptions when possible.
-
-Return JSON array:
-[
-    {{
-        "transaction_type": "expense" or "income",
-        "amount": number or null,
-        "currency": "TRY", "USD", "EUR", etc.,
-        "description": string or null,
-        "category_name": string (from existing categories) or null,
-        "date": string (YYYY-MM-DD) or null,
-        "payment_method": string or null,
-        "is_recurring": false
-    }}
-]
-
-JSON:
+Rules:
+1. Extract multiple items if listed (e.g. "coffee and book").
+2. Match categories exactly to the list provided.
+3. Determine expense vs income from context (spending vs salary/gelir).
+4. Default currency TRY; map $/dolar to USD, €/euro to EUR, tl/₺ to TRY.
+5. If an item price is missing but a total is given, infer the difference only when unambiguous; otherwise use null for amount.
+6. Do not create a separate transaction for words like "total" or "toplam".
+7. Use null for date if not mentioned.
 """
 
-        examples = """
-EXAMPLES (follow these patterns exactly):
-
-Example 1 (TR narrative):
-Input: "Markete gittim, su aldım 10 TL, bir de süt aldım; totalde masrafım 45 TL."
-Output:
-[
-  {"transaction_type":"expense","amount":10,"currency":"TRY","description":"su","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
-  {"transaction_type":"expense","amount":35,"currency":"TRY","description":"süt","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
-]
-
-Example 2 (EN narrative):
-Input: "I went to the store, got water for 10 TL and milk too, total was 45 TL."
-Output:
-[
-  {"transaction_type":"expense","amount":10,"currency":"TRY","description":"water","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
-  {"transaction_type":"expense","amount":35,"currency":"TRY","description":"milk","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
-]
-
-Example 3 (ambiguous, do not guess):
-Input: "I bought water, milk, and bread; total 120 TL."
-Output:
-[
-  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"water","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
-  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"milk","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
-  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"bread","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
-]
-
-Example 4 (mixed language + quantity):
-Input: "2 coffees aldım, each 60 TL, and cake 80 TL. toplam 200 TL."
-Output:
-[
-  {"transaction_type":"expense","amount":120,"currency":"TRY","description":"coffee","category_name":"Food","date":null,"payment_method":null,"is_recurring":false},
-  {"transaction_type":"expense","amount":80,"currency":"TRY","description":"cake","category_name":"Food","date":null,"payment_method":null,"is_recurring":false}
-]
-"""
-
-        response = self.llm_fast.invoke(f"{prompt}\n{examples}")
-        drafts = self._parse_batch_response(response.content)
+        drafts: TransactionBatch = self.llm_fast.invoke(prompt)
         if self._is_low_confidence_batch(drafts):
             fallback = self._rule_based_extract_batch(message, categories_str)
             if fallback.items:
@@ -405,28 +322,6 @@ Output:
                 return original
 
         return categories[0]
-
-    def _parse_batch_response(self, content: str) -> TransactionBatch:
-        """Parse LLM JSON output into a TransactionBatch."""
-        try:
-            # Clean markdown fences if present
-            cleaned = content.strip()
-            if "```json" in cleaned:
-                cleaned = cleaned.split("```json")[-1].split("```")[0]
-            elif "```" in cleaned:
-                cleaned = cleaned.split("```")[1].split("```")[0]
-
-            parsed = json.loads(cleaned.strip())
-
-            # Handle both array and single-object responses
-            if isinstance(parsed, dict):
-                parsed = [parsed]
-
-            items = [TransactionDraft(**item) for item in parsed]
-            return TransactionBatch(items=items)
-        except Exception as e:
-            logger.warning("Failed to parse batch JSON: %s — raw: %s", e, content)
-            return TransactionBatch(items=[TransactionDraft()])
 
     def _merge_batches(
         self, existing: TransactionBatch, new: TransactionBatch
