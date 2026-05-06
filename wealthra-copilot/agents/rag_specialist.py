@@ -248,6 +248,10 @@ Output:
 
         response = self.llm_fast.invoke(f"{prompt}\n{examples}")
         drafts = self._parse_batch_response(response.content)
+        if self._is_low_confidence_batch(drafts):
+            fallback = self._rule_based_extract_batch(message, categories_str)
+            if fallback.items:
+                drafts = fallback
         drafts = self._reconcile_missing_amount_from_total(message, drafts)
 
         # Merge with existing session batch (multi-turn info gathering)
@@ -256,6 +260,151 @@ Output:
             drafts = self._reconcile_missing_amount_from_total(message, drafts)
 
         return drafts
+
+    @staticmethod
+    def _is_low_confidence_batch(batch: TransactionBatch) -> bool:
+        """
+        Detect obviously bad extraction outputs.
+        Typical failure mode is a single default/empty draft after JSON parse errors.
+        """
+        if not batch.items:
+            return True
+
+        if len(batch.items) == 1:
+            item = batch.items[0]
+            if item.amount is None and item.description is None and item.category_name is None:
+                return True
+
+        complete_items = sum(
+            1 for item in batch.items
+            if item.amount is not None and item.description is not None
+        )
+        return complete_items == 0
+
+    def _rule_based_extract_batch(
+        self, message: str, categories_str: str
+    ) -> TransactionBatch:
+        """
+        Lightweight deterministic extractor used as a fallback when LLM output is unusable.
+        Focuses on common expense narration patterns in TR/EN.
+        """
+        categories = [c.strip() for c in categories_str.split(",") if c.strip()]
+        msg = message.strip()
+        drafts: list[TransactionDraft] = []
+        seen_desc: set[str] = set()
+
+        amount_desc_patterns = [
+            re.compile(
+                r'(?P<amount>\d+(?:[.,]\d+)?)\s*(?:tl|lira|₺|try)\s*(?:["\'’]?(?:ye|ya))?\s*'
+                r'(?P<desc>[a-zA-ZçğıöşüÇĞİÖŞÜ0-9\s]{2,40}?)(?=\s*(?:ald[ıi]m|harcad[ıi]m|ödedim|için|for|ve|,|;|\.|$))',
+                flags=re.IGNORECASE,
+            ),
+            re.compile(
+                r'(?P<desc>[a-zA-ZçğıöşüÇĞİÖŞÜ0-9\s]{2,40}?)\s*'
+                r'(?P<amount>\d+(?:[.,]\d+)?)\s*(?:tl|lira|₺|try)',
+                flags=re.IGNORECASE,
+            ),
+        ]
+
+        for pattern in amount_desc_patterns:
+            for match in pattern.finditer(msg):
+                raw_desc = (match.group("desc") or "").strip(" ,.;:-")
+                desc = self._clean_item_description(raw_desc)
+                amount_raw = match.group("amount").replace(",", ".")
+                if not desc:
+                    continue
+                try:
+                    amount = float(amount_raw)
+                except ValueError:
+                    continue
+
+                desc_key = desc.lower()
+                if desc_key in seen_desc:
+                    continue
+                seen_desc.add(desc_key)
+
+                drafts.append(
+                    TransactionDraft(
+                        transaction_type=TransactionType.EXPENSE,
+                        amount=amount,
+                        currency="TRY",
+                        description=desc,
+                        category_name=self._pick_category(desc, msg, categories),
+                    )
+                )
+
+        implicit_desc_pattern = re.compile(
+            r'(?:bir\s+(?:adet|tane)\s+)?(?P<desc>[a-zA-ZçğıöşüÇĞİÖŞÜ]{2,30})\s+ald[ıi]m',
+            flags=re.IGNORECASE,
+        )
+        for match in implicit_desc_pattern.finditer(msg):
+            desc = self._clean_item_description((match.group("desc") or "").strip())
+            if not desc:
+                continue
+            desc_key = desc.lower()
+            if desc_key in seen_desc:
+                continue
+            seen_desc.add(desc_key)
+
+            drafts.append(
+                TransactionDraft(
+                    transaction_type=TransactionType.EXPENSE,
+                    amount=None,
+                    currency="TRY",
+                    description=desc,
+                    category_name=self._pick_category(desc, msg, categories),
+                )
+            )
+
+        return TransactionBatch(items=drafts)
+
+    @staticmethod
+    def _clean_item_description(raw: str) -> str:
+        """Normalize noisy item phrases into a compact description."""
+        if not raw:
+            return ""
+
+        cleaned = re.sub(
+            r'\b(?:için|onun dışında|onun disinda|bir adet|bir tane|adet|tane|de|da)\b',
+            ' ',
+            raw,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip(" ,.;:-")
+        if not cleaned:
+            return ""
+
+        tokens = cleaned.split()
+        # Descriptions are usually short nouns; keep first 2 tokens maximum.
+        return " ".join(tokens[:2])
+
+    @staticmethod
+    def _pick_category(desc: str, message: str, categories: list[str]) -> Optional[str]:
+        """Pick the best available category name from existing categories."""
+        if not categories:
+            return None
+
+        haystack = f"{desc} {message}".lower()
+        keyword_groups = [
+            (("market", "grocery", "bakkal", "su", "süt", "milk", "water"), ("market", "grocery")),
+            (("yemek", "food", "kahve", "coffee", "restoran"), ("food", "yemek", "restoran")),
+            (("ulaşım", "ulasim", "taxi", "metro", "bus", "otobüs"), ("travel", "transport", "ulaşım", "ulasim")),
+            (("sağlık", "saglik", "eczane", "doctor", "hastane"), ("health", "sağlık", "saglik")),
+            (("eğitim", "egitim", "course", "kitap", "book"), ("education", "eğitim", "egitim")),
+        ]
+
+        lowered_categories = [(c, c.lower()) for c in categories]
+        for trigger_words, category_words in keyword_groups:
+            if any(word in haystack for word in trigger_words):
+                for original, lowered in lowered_categories:
+                    if any(cat_word in lowered for cat_word in category_words):
+                        return original
+
+        for original, lowered in lowered_categories:
+            if "other" in lowered or "diğer" in lowered or "diger" in lowered:
+                return original
+
+        return categories[0]
 
     def _parse_batch_response(self, content: str) -> TransactionBatch:
         """Parse LLM JSON output into a TransactionBatch."""
