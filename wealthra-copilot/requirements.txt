@@ -10,4 +10,5 @@ pydantic
 pydantic-settings
 python-multipart
 httpx
+lingua-language-detector>=2.0.2,<3
 
