@@ -174,6 +174,23 @@ CRITICAL RULES:
 5. If the date is not mentioned, use null (system will default to today).
 6. ALWAYS return an array, even for a single transaction.
 7. Return ONLY the JSON — no explanation, no foreign characters in strings.
+8. If the message contains an OVERALL TOTAL plus item-level amounts, treat the total as a CHECK,
+   not as a separate transaction line.
+9. If exactly one item amount is missing but an overall total is provided, infer the missing amount:
+   missing_amount = total_amount - sum(other_item_amounts). Only do this when the result is positive.
+10. Keep mathematical consistency: sum of item amounts should match stated overall total when possible.
+11. Ignore narrative filler and storytelling details; extract only transactional facts.
+12. If inference is ambiguous (multiple missing amounts, multiple conflicting totals, or non-positive result),
+    leave ambiguous amount(s) as null instead of guessing.
+
+ROBUST EXTRACTION POLICY (EN + TR):
+- Detect item candidates from both explicit nouns and quantity patterns:
+  "1 water", "2 coffees", "1LT milk", "bir su", "2 kahve", "1 litre süt".
+- Detect total phrases in both languages:
+  "total", "in total", "overall", "all in", "toplam", "totalde", "genel toplam", "tuttu".
+- Do NOT create a separate transaction for "total/toplam" statements.
+- If one line item has known amount and another does not, and one clear total exists, infer by subtraction.
+- Preserve the user's language in descriptions when possible.
 
 Return JSON array:
 [
@@ -192,12 +209,51 @@ Return JSON array:
 JSON:
 """
 
-        response = self.llm_fast.invoke(prompt)
+        examples = """
+EXAMPLES (follow these patterns exactly):
+
+Example 1 (TR narrative):
+Input: "Markete gittim, su aldım 10 TL, bir de süt aldım; totalde masrafım 45 TL."
+Output:
+[
+  {"transaction_type":"expense","amount":10,"currency":"TRY","description":"su","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
+  {"transaction_type":"expense","amount":35,"currency":"TRY","description":"süt","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
+]
+
+Example 2 (EN narrative):
+Input: "I went to the store, got water for 10 TL and milk too, total was 45 TL."
+Output:
+[
+  {"transaction_type":"expense","amount":10,"currency":"TRY","description":"water","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
+  {"transaction_type":"expense","amount":35,"currency":"TRY","description":"milk","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
+]
+
+Example 3 (ambiguous, do not guess):
+Input: "I bought water, milk, and bread; total 120 TL."
+Output:
+[
+  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"water","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
+  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"milk","category_name":"Market","date":null,"payment_method":null,"is_recurring":false},
+  {"transaction_type":"expense","amount":null,"currency":"TRY","description":"bread","category_name":"Market","date":null,"payment_method":null,"is_recurring":false}
+]
+
+Example 4 (mixed language + quantity):
+Input: "2 coffees aldım, each 60 TL, and cake 80 TL. toplam 200 TL."
+Output:
+[
+  {"transaction_type":"expense","amount":120,"currency":"TRY","description":"coffee","category_name":"Food","date":null,"payment_method":null,"is_recurring":false},
+  {"transaction_type":"expense","amount":80,"currency":"TRY","description":"cake","category_name":"Food","date":null,"payment_method":null,"is_recurring":false}
+]
+"""
+
+        response = self.llm_fast.invoke(f"{prompt}\n{examples}")
         drafts = self._parse_batch_response(response.content)
+        drafts = self._reconcile_missing_amount_from_total(message, drafts)
 
         # Merge with existing session batch (multi-turn info gathering)
         if session and session.batch and session.batch.items:
             drafts = self._merge_batches(session.batch, drafts)
+            drafts = self._reconcile_missing_amount_from_total(message, drafts)
 
         return drafts
 
@@ -402,6 +458,63 @@ JSON:
             merged.transaction_type = new.transaction_type
 
         return merged
+
+    def _reconcile_missing_amount_from_total(
+        self,
+        message: str,
+        batch: TransactionBatch,
+    ) -> TransactionBatch:
+        """
+        Reliability backstop for multi-item parsing:
+        if exactly one item amount is missing and a clear overall total exists
+        in the message, infer the missing amount from subtraction.
+        """
+        if not batch.items or len(batch.items) < 2:
+            return batch
+
+        total_amount = self._extract_overall_total_amount(message)
+        if total_amount is None:
+            return batch
+
+        missing_indices = [i for i, item in enumerate(batch.items) if item.amount is None]
+        if len(missing_indices) != 1:
+            return batch
+
+        known_sum = sum((item.amount or 0.0) for item in batch.items)
+        inferred = round(total_amount - known_sum, 2)
+        if inferred <= 0:
+            return batch
+
+        updated_items = list(batch.items)
+        target = updated_items[missing_indices[0]].model_copy()
+        target.amount = inferred
+        updated_items[missing_indices[0]] = target
+        return TransactionBatch(items=updated_items)
+
+    @staticmethod
+    def _extract_overall_total_amount(message: str) -> float | None:
+        """
+        Extract a likely overall total amount from phrases like:
+        - "toplam ... 45 TL"
+        - "totalde ... 45 TL tuttu"
+        - "in total 45"
+        """
+        total_patterns = [
+            r'(?:totalde|toplamda|toplam|genel\s+toplam|in\s+total|overall|all\s+in)\D{0,24}(\d+(?:[.,]\d+)?)',
+            r'(?:tüm\s+masraf(?:ım|im)?|masraf(?:ım|im)?\s+toplam[ıi])\D{0,24}(\d+(?:[.,]\d+)?)',
+        ]
+
+        for pattern in total_patterns:
+            matches = re.findall(pattern, message, flags=re.IGNORECASE)
+            if not matches:
+                continue
+            raw = matches[-1].replace(",", ".").strip()
+            try:
+                return float(raw)
+            except ValueError:
+                continue
+
+        return None
 
     @staticmethod
     def _today_iso() -> str:

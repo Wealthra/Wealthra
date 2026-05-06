@@ -57,8 +57,13 @@ def process_audio_file(audio_file_path: str, categories: str | None = None) -> d
     EXISTING CATEGORIES: {categories or 'General, Food, Market, Travel, Health, Entertainment, Others'}
 
     CRITICAL RULES:
-    - Sadece ve sadece hedef dilde yanıt ver, araya başka dillerden karakter/kelime karıştırma.
-    - Kendini tekrar etme (avoid redundancy), her bilgiyi bir kez ve öz söyle.
+    - Use the transcript language for `description` fields (English or Turkish).
+    - Do not mix scripts/languages within the same description.
+    - Avoid repetition; do not output duplicate expense lines.
+    - If transcript mentions an overall total (toplam/total/all in), treat it as a consistency check,
+      not a separate expense row.
+    - If exactly one expense amount is missing and one clear overall total exists, infer by subtraction.
+      Otherwise keep ambiguous amounts out of output.
     - Return ONLY the JSON object.
 
     RAW TRANSCRIPT:

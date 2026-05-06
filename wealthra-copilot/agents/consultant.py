@@ -60,6 +60,7 @@ class ConsultantSpecialist:
             "Do NOT include ANY characters from other languages or scripts. "
             "Chinese, Japanese, Vietnamese, Arabic characters are FORBIDDEN."
         )
+        score_values = "Good, Needs Attention, Critical" if lang == "en" else "İyi, Dikkat Gerekli, Kritik"
 
         prompt = f"""You are Owlaris, the premium financial advisor of Wealthra.
 
@@ -114,6 +115,9 @@ MANDATORY ANALYSIS RULES:
 7. {lang_instruction}
 8. Return ONLY the JSON — no markdown fences, no explanation.
 9. NO REPETITION: Never state the same number or fact in multiple items. Each insight, warning, and suggestion must present DIFFERENT information.
+10. Do NOT invent missing numbers. If a metric is unavailable, skip that metric.
+11. Keep each `title` under 8 words and each `detail` under 220 characters.
+12. `overall_score` must be exactly one of: {score_values}
 
 JSON:
 """
@@ -132,11 +136,12 @@ JSON:
                 cleaned = cleaned.split("```")[1].split("```")[0]
 
             data = json.loads(cleaned.strip())
+            overall_score = self._normalize_score(data.get("overall_score"), lang)
             return ConsultantAdvice(
                 insights=[InsightItem(**i) for i in data.get("insights", [])],
                 warnings=[InsightItem(**w) for w in data.get("warnings", [])],
                 suggestions=[InsightItem(**s) for s in data.get("suggestions", [])],
-                overall_score=data.get("overall_score"),
+                overall_score=overall_score,
             )
         except Exception as e:
             logger.warning(
@@ -156,4 +161,24 @@ JSON:
                 ],
                 overall_score="N/A",
             )
+
+    @staticmethod
+    def _normalize_score(score: Optional[str], lang: str) -> str:
+        """Normalize model score to a stable UI-friendly value."""
+        if not score:
+            return "Needs Attention" if lang == "en" else "Dikkat Gerekli"
+
+        raw = score.strip().lower()
+        if lang == "tr":
+            if any(x in raw for x in ["kritik", "critical"]):
+                return "Kritik"
+            if any(x in raw for x in ["iyi", "good"]):
+                return "İyi"
+            return "Dikkat Gerekli"
+
+        if any(x in raw for x in ["critical", "kritik"]):
+            return "Critical"
+        if "good" in raw or "iyi" in raw:
+            return "Good"
+        return "Needs Attention"
 
