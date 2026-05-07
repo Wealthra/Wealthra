@@ -18,6 +18,7 @@ Handles all database interactions through two modes:
 
 import re
 import logging
+import ast
 from datetime import datetime, timedelta
 from typing import Optional, Any
 
@@ -90,7 +91,7 @@ _MONTH_ALIASES = {
 def _extract_text_content(content: Any) -> str:
     """Normalize LLM/tool output payloads (str/list/dict) into plain text."""
     if isinstance(content, str):
-        return content
+        return _sanitize_sql_agent_output(content)
     if isinstance(content, list):
         parts: list[str] = []
         for item in content:
@@ -108,12 +109,54 @@ def _extract_text_content(content: Any) -> str:
                     parts.append(text_attr)
                 else:
                     parts.append(str(item))
-        return "\n".join(p for p in parts if p).strip()
+        return _sanitize_sql_agent_output("\n".join(p for p in parts if p).strip())
     if isinstance(content, dict):
         text_value = content.get("text")
         if isinstance(text_value, str):
-            return text_value
-    return str(content)
+            return _sanitize_sql_agent_output(text_value)
+    return _sanitize_sql_agent_output(str(content))
+
+
+def _sanitize_sql_agent_output(raw: str) -> str:
+    """
+    Strip verbose Gemini tool artifacts from SQL-agent outputs.
+    This keeps downstream prompts small and avoids long waits after chain completion.
+    """
+    text = (raw or "").strip()
+    if not text:
+        return text
+
+    # Typical shape: "<rows_repr>[{'type': 'text', 'text': '...', 'extras': {...}}]"
+    marker = "[{'type': 'text'"
+    idx = text.find(marker)
+    if idx >= 0:
+        prefix = text[:idx].strip()
+        block = text[idx:].strip()
+        llm_text: str | None = None
+
+        try:
+            parsed = ast.literal_eval(block)
+            if (
+                isinstance(parsed, list)
+                and parsed
+                and isinstance(parsed[0], dict)
+                and isinstance(parsed[0].get("text"), str)
+            ):
+                llm_text = parsed[0]["text"].strip()
+        except Exception:
+            match = re.search(r"'text':\s*'(.+?)'\s*,\s*'index'", block, flags=re.DOTALL)
+            if match:
+                llm_text = match.group(1).strip()
+
+        if llm_text:
+            # If rows are present, keep concise row preview + natural-language summary only.
+            if prefix:
+                return f"{prefix}\n{llm_text}"
+            return llm_text
+
+    # Remove oversized signature blobs if present in raw text.
+    text = re.sub(r"'signature':\s*'[^']+'", "'signature':'<omitted>'", text)
+    return text
 
 
 class RAGSpecialist:
