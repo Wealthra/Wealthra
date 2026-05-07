@@ -28,6 +28,7 @@ from sqlalchemy import text
 
 from core.config import settings
 from core.database import SessionLocal
+from core.llm_utils import groq_invoke_with_retry
 from core.contracts import (
     TransactionDraft,
     TransactionBatch,
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 # .NET API base URL (internal Docker network)
 _API_BASE_URL = "http://api:8080/api"
+_READ_TABLES = ["Expenses", "Incomes", "Categories"]
 
 
 class RAGSpecialist:
@@ -60,7 +62,11 @@ class RAGSpecialist:
             api_key=settings.GROQ_API_KEY,
             model_name=reasoning_model,
         )
-        self.db = SQLDatabase.from_uri(settings.DATABASE_URL)
+        # Keep SQL agent context narrowly scoped to financial tables.
+        self.db = SQLDatabase.from_uri(
+            settings.DATABASE_URL,
+            include_tables=_READ_TABLES,
+        )
 
     # -----------------------------------------------------------------------
     # READ — Fetch historical data
@@ -104,13 +110,19 @@ class RAGSpecialist:
                 agent_type="openai-tools",
                 verbose=True,
                 prefix=custom_prefix,
+                use_query_checker=False,
+                max_iterations=4,
             )
 
             full_query = (
                 f"{message} "
                 "(Provide a comprehensive list of categories and amounts if requested)"
             )
-            response = agent_executor.invoke({"input": full_query})
+            response = await groq_invoke_with_retry(
+                agent_executor,
+                {"input": full_query},
+                "rag.read_sql_agent",
+            )
             raw_output = response["output"]
 
             return QueryResult(
@@ -164,7 +176,11 @@ Rules:
 7. Use null for date if not mentioned.
 """
 
-        drafts: TransactionBatch = self.llm_fast.invoke(prompt)
+        drafts: TransactionBatch = await groq_invoke_with_retry(
+            self.llm_fast,
+            prompt,
+            "rag.write_extraction",
+        )
         if self._is_low_confidence_batch(drafts):
             fallback = self._rule_based_extract_batch(message, categories_str)
             if fallback.items:

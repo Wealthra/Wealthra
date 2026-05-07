@@ -11,6 +11,11 @@ class Settings(BaseSettings):
 
     # Default Chat Model: User conversations, analysis, narrative
     MODEL_REASONING: str = "llama-3.3-70b-versatile"
+
+    # ── Groq resiliency / rate-limit controls ───────────────────────────
+    GROQ_MIN_INTERVAL_SECONDS: float = 0.8
+    GROQ_MAX_RETRIES: int = 4
+    GROQ_RETRY_BASE_SECONDS: float = 2.0
     
     class Config:
         case_sensitive = True

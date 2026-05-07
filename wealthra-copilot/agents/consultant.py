@@ -15,6 +15,7 @@ from typing import Optional
 from langchain_groq import ChatGroq
 
 from core.config import settings
+from core.llm_utils import groq_invoke_with_retry
 from core.contracts import (
     QueryResult,
     ConsultantAdvice,
@@ -69,7 +70,9 @@ Task: Provide actionable insights based strictly on the provided numbers.
 6. overall_score must be exactly one of: {score_values}
 """
 
-        result: ConsultantAdvice = self.llm.invoke(prompt)
+        result: ConsultantAdvice = await groq_invoke_with_retry(
+            self.llm, prompt, "consultant.analysis"
+        )
         normalized = self._normalize_score(result.overall_score, lang)
         return result.model_copy(update={"overall_score": normalized})
 

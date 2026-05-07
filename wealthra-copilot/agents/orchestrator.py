@@ -32,6 +32,7 @@ from langchain_groq import ChatGroq
 from core.config import settings
 from core.session import SessionStore
 from core.language import LanguageDetector
+from core.llm_utils import groq_invoke_with_retry
 from core.contracts import (
     ChatRequest,
     ChatResponse,
@@ -301,7 +302,9 @@ Message: "{message}"
 
 Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else."""
 
-        response = self.llm_fast.invoke(prompt)
+        response = await groq_invoke_with_retry(
+            self.llm_fast, prompt, "orchestrator.intent_classification"
+        )
         raw = response.content.strip().lower().strip('"').strip("'")
 
         try:
@@ -703,7 +706,9 @@ Task:
 
 {lang_block}"""
 
-        response = self.llm_reasoning.invoke(prompt)
+        response = await groq_invoke_with_retry(
+            self.llm_reasoning, prompt, "orchestrator.smalltalk"
+        )
 
         session.state = SessionState.IDLE
         await self.session_store.save(request.user_id, session)
@@ -785,7 +790,9 @@ WRITING STYLE RULES:
 
 Output ONLY the final conversational message. No JSON, no markdown fences, no meta-commentary."""
 
-        response = self.llm_reasoning.invoke(prompt)
+        response = await groq_invoke_with_retry(
+            self.llm_reasoning, prompt, "orchestrator.narrative_synthesis"
+        )
         return response.content.strip()
 
     # ===================================================================
