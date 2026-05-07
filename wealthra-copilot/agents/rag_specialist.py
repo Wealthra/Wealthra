@@ -18,6 +18,7 @@ Handles all database interactions through two modes:
 
 import re
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -70,6 +71,20 @@ _PLACEHOLDER_RESULT_PATTERNS = (
     "category 2",
     "category 3",
 )
+_MONTH_ALIASES = {
+    1: ("january", "jan", "ocak"),
+    2: ("february", "feb", "şubat", "subat"),
+    3: ("march", "mar", "mart"),
+    4: ("april", "apr", "nisan"),
+    5: ("may", "mayıs", "mayis"),
+    6: ("june", "jun", "haziran"),
+    7: ("july", "jul", "temmuz"),
+    8: ("august", "aug", "ağustos", "agustos"),
+    9: ("september", "sep", "sept", "eylül", "eylul"),
+    10: ("october", "oct", "ekim"),
+    11: ("november", "nov", "kasım", "kasim"),
+    12: ("december", "dec", "aralık", "aralik"),
+}
 
 
 class RAGSpecialist:
@@ -151,6 +166,7 @@ class RAGSpecialist:
            - JOIN MUST be: "Expenses"."CategoryId" = "Categories"."Id"
            - Use "Expenses"."TransactionDate" for expense dates.
            - There is no "Transactions" table in this context.
+           - Currency columns exist as "Expenses"."Currency" and "Incomes"."Currency".
         10. NEVER fabricate values. If a query fails, return a short error summary only.
         11. USER SCOPING IS MANDATORY:
             - Any query reading "Expenses" MUST include filter:
@@ -165,6 +181,10 @@ class RAGSpecialist:
               start_date={start_date or "None"}, end_date={end_date or "None"}
               as additional bounds.
             - If no period is provided in message and no backend date bounds exist, do not force a date filter.
+        13. CURRENCY RULES ARE MANDATORY:
+            - NEVER sum or compare amounts across different currencies in a single total.
+            - For aggregated expense/income outputs, include "Currency" in SELECT and GROUP BY.
+            - If multiple currencies exist, return separate rows per currency.
         """
 
         try:
@@ -219,6 +239,25 @@ class RAGSpecialist:
                     raw_output = recovered
             if self._is_invalid_sql_output(raw_output):
                 logger.error("SQL agent returned invalid/fabricated output after retries.")
+                deterministic = self._run_deterministic_read(
+                    message=message,
+                    user_id=user_id,
+                    lang=lang,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                if deterministic:
+                    return deterministic
+            if self._is_non_answer_sql_output(raw_output):
+                deterministic = self._run_deterministic_read(
+                    message=message,
+                    user_id=user_id,
+                    lang=lang,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                if deterministic:
+                    return deterministic
                 return self._build_read_failure_result(lang, raw_output)
 
             return QueryResult(
@@ -247,13 +286,41 @@ class RAGSpecialist:
                         raw_output = recovered
                     if self._is_invalid_sql_output(raw_output):
                         logger.error("SQL fallback output invalid after rate-limit fallback.")
+                        deterministic = self._run_deterministic_read(
+                            message=message,
+                            user_id=user_id,
+                            lang=lang,
+                            start_date=start_date,
+                            end_date=end_date,
+                        )
+                        if deterministic:
+                            return deterministic
                         return self._build_read_failure_result(lang, raw_output)
+                    if self._is_non_answer_sql_output(raw_output):
+                        deterministic = self._run_deterministic_read(
+                            message=message,
+                            user_id=user_id,
+                            lang=lang,
+                            start_date=start_date,
+                            end_date=end_date,
+                        )
+                        if deterministic:
+                            return deterministic
                     return QueryResult(
                         summary=raw_output,
                         raw_text=raw_output,
                     )
                 except Exception as fallback_error:
                     logger.error("RAG Read fallback failed: %s", fallback_error)
+            deterministic = self._run_deterministic_read(
+                message=message,
+                user_id=user_id,
+                lang=lang,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if deterministic:
+                return deterministic
             logger.error("RAG Read failed: %s", e)
             error_msg = (
                 "Veritabanı sorgusu sırasında bir hata oluştu."
@@ -420,6 +487,181 @@ class RAGSpecialist:
         if escaped not in lowered:
             return False
         return True
+
+    def _run_deterministic_read(
+        self,
+        message: str,
+        user_id: str,
+        lang: str,
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> QueryResult | None:
+        """
+        Deterministic fallback for common category analytics when tool-calling fails.
+        Always scoped to the authenticated user.
+        """
+        query_kind = self._detect_deterministic_query_kind(message)
+        if not query_kind:
+            return None
+
+        range_start, range_end_excl = self._resolve_effective_date_range(
+            message=message,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if range_start and range_end_excl and range_start >= range_end_excl:
+            return None
+
+        category_col = '"NameTr"' if lang == "tr" else '"NameEn"'
+        base_sql = (
+            f'SELECT c.{category_col} AS "Category", e."Currency" AS "Currency", '
+            'SUM(e."Amount") AS "TotalAmount" '
+            'FROM "Expenses" e '
+            'JOIN "Categories" c ON e."CategoryId" = c."Id" '
+            'WHERE e."CreatedBy" = :user_id'
+        )
+        params: dict[str, object] = {"user_id": user_id}
+        if range_start:
+            base_sql += ' AND e."TransactionDate" >= :date_start'
+            params["date_start"] = range_start
+        if range_end_excl:
+            base_sql += ' AND e."TransactionDate" < :date_end_excl'
+            params["date_end_excl"] = range_end_excl
+
+        if query_kind == "top_category":
+            sql = (
+                "WITH ranked AS ("
+                f"{base_sql} "
+                f"GROUP BY c.{category_col}, e.\"Currency\""
+                "), scoped AS ("
+                'SELECT "Category", "Currency", "TotalAmount", '
+                'ROW_NUMBER() OVER (PARTITION BY "Currency" ORDER BY "TotalAmount" DESC) AS rn '
+                "FROM ranked"
+                ") "
+                'SELECT "Category", "Currency", "TotalAmount" FROM scoped WHERE rn = 1 '
+                'ORDER BY "Currency"'
+            )
+        else:
+            sql = (
+                f"{base_sql} "
+                f"GROUP BY c.{category_col}, e.\"Currency\" "
+                'ORDER BY "Currency", "TotalAmount" DESC '
+                "LIMIT 20"
+            )
+
+        db = SessionLocal()
+        try:
+            rows = db.execute(text(sql), params).fetchall()
+            if not rows:
+                msg = (
+                    "Bu kriterlerde harcama verisi bulunamadı."
+                    if lang == "tr"
+                    else "No expense data was found for these filters."
+                )
+                return QueryResult(summary=msg, raw_text=msg)
+
+            if query_kind == "top_category":
+                parts = []
+                for row in rows:
+                    category, currency, amount = row[0], row[1], row[2]
+                    if lang == "tr":
+                        parts.append(f"{currency}: {category} ({amount})")
+                    else:
+                        parts.append(f"{currency}: {category} ({amount})")
+                if lang == "tr":
+                    summary = "Para birimine göre en yüksek harcama kategorileri: " + "; ".join(parts)
+                else:
+                    summary = "Top spending categories by currency: " + "; ".join(parts)
+                return QueryResult(summary=summary, raw_text=summary)
+
+            lines = []
+            for row in rows:
+                lines.append(f"{row[1]} | {row[0]}: {row[2]}")
+            summary = "\n".join(lines)
+            return QueryResult(summary=summary, raw_text=summary)
+        except Exception as ex:
+            logger.warning("Deterministic read fallback failed: %s", ex)
+            return None
+        finally:
+            db.close()
+
+    @staticmethod
+    def _detect_deterministic_query_kind(message: str) -> Optional[str]:
+        """
+        Detect common category analytics intents:
+        - top_category
+        - category_breakdown
+        """
+        m = (message or "").lower()
+        has_category = any(x in m for x in ["kategori", "category"])
+        has_spend = any(x in m for x in ["harca", "harcam", "spend", "expense"])
+        if not (has_category and has_spend):
+            return None
+        is_top = any(x in m for x in ["en fazla", "en çok", "highest", "most", "top"])
+        return "top_category" if is_top else "category_breakdown"
+
+    @classmethod
+    def _resolve_effective_date_range(
+        cls,
+        message: str,
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> tuple[Optional[datetime], Optional[datetime]]:
+        """Resolve date range from message and optional backend bounds."""
+        msg_start, msg_end_excl = cls._extract_month_range_from_message(message)
+        ctx_start, ctx_end_excl = cls._parse_context_date_bounds(start_date, end_date)
+
+        starts = [d for d in [msg_start, ctx_start] if d is not None]
+        ends = [d for d in [msg_end_excl, ctx_end_excl] if d is not None]
+        effective_start = max(starts) if starts else None
+        effective_end = min(ends) if ends else None
+        return effective_start, effective_end
+
+    @staticmethod
+    def _parse_context_date_bounds(
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> tuple[Optional[datetime], Optional[datetime]]:
+        """Parse API-provided date bounds into [start, end_exclusive)."""
+        def parse_iso(d: Optional[str]) -> Optional[datetime]:
+            if not d:
+                return None
+            try:
+                return datetime.strptime(d, "%Y-%m-%d")
+            except ValueError:
+                return None
+
+        s = parse_iso(start_date)
+        e = parse_iso(end_date)
+        end_excl = e + timedelta(days=1) if e else None
+        return s, end_excl
+
+    @classmethod
+    def _extract_month_range_from_message(
+        cls,
+        message: str,
+    ) -> tuple[Optional[datetime], Optional[datetime]]:
+        """Extract month range from TR/EN month names in the message."""
+        lowered = (message or "").lower()
+        if not lowered:
+            return None, None
+
+        matched_month = None
+        for month_num, names in _MONTH_ALIASES.items():
+            if any(re.search(rf"\b{re.escape(name)}\b", lowered) for name in names):
+                matched_month = month_num
+                break
+        if not matched_month:
+            return None, None
+
+        year_match = re.search(r"\b(20\d{2})\b", lowered)
+        year = int(year_match.group(1)) if year_match else datetime.utcnow().year
+        start = datetime(year, matched_month, 1)
+        if matched_month == 12:
+            end_excl = datetime(year + 1, 1, 1)
+        else:
+            end_excl = datetime(year, matched_month + 1, 1)
+        return start, end_excl
 
     # -----------------------------------------------------------------------
     # WRITE — Parse natural language into draft(s)
