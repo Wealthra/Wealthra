@@ -77,6 +77,8 @@ def health_check():
 async def chat(
     message: str,
     user_id: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     default_chat_model: Optional[str] = None,
     enrichment_model: Optional[str] = None,
     authorization: Optional[str] = Header(default=None),
@@ -98,6 +100,8 @@ async def chat(
     request = ChatRequest(
         message=message,
         user_id=user_id,
+        start_date=start_date,
+        end_date=end_date,
         auth_token=auth_token,
     )
 

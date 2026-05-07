@@ -109,7 +109,14 @@ class RAGSpecialist:
     # READ — Fetch historical data
     # -----------------------------------------------------------------------
 
-    async def read(self, message: str, user_id: str, lang: str) -> QueryResult:
+    async def read(
+        self,
+        message: str,
+        user_id: str,
+        lang: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> QueryResult:
         """
         Execute SQL queries to fetch historical data.
         Returns a structured QueryResult contract.
@@ -122,6 +129,7 @@ class RAGSpecialist:
         custom_prefix = f"""
         You are the Data Analyst for Wealthra.
         Your goal is to provide raw data summaries from the database using SELECT queries.
+        AUTHORIZED USER ID: "{user_id}"
 
         CRITICAL RULES:
         1. YOU ARE A READ-ONLY AGENT. NEVER execute INSERT, UPDATE, DELETE, DROP, or ANY write operations.
@@ -144,39 +152,69 @@ class RAGSpecialist:
            - Use "Expenses"."TransactionDate" for expense dates.
            - There is no "Transactions" table in this context.
         10. NEVER fabricate values. If a query fails, return a short error summary only.
+        11. USER SCOPING IS MANDATORY:
+            - Any query reading "Expenses" MUST include filter:
+              "Expenses"."CreatedBy" = '{user_id}'
+            - Any query reading "Incomes" MUST include filter:
+              "Incomes"."CreatedBy" = '{user_id}'
+            - Never return aggregate or row data from other users.
+        12. DATE RANGE RULES:
+            - If the user message clearly specifies a period (e.g., "May", "last month", specific dates),
+              apply date filtering on the relevant "TransactionDate" column.
+            - If backend context dates are provided, use:
+              start_date={start_date or "None"}, end_date={end_date or "None"}
+              as additional bounds.
+            - If no period is provided in message and no backend date bounds exist, do not force a date filter.
         """
 
         try:
-            full_query = self._build_sql_user_prompt(message)
+            full_query = self._build_sql_user_prompt(
+                message=message,
+                user_id=user_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
             raw_output = await self._run_sql_agent(
                 llm=self.llm_sql_primary,
                 full_query=full_query,
                 custom_prefix=custom_prefix,
                 call_name="rag.read_sql_agent.primary",
             )
-            recovered = self._execute_embedded_sql_if_present(raw_output)
+            recovered = self._execute_embedded_sql_if_present(raw_output, user_id)
             if recovered:
                 raw_output = recovered
             if self._is_non_answer_sql_output(raw_output):
                 logger.warning("Primary SQL model produced non-answer output; retrying with stricter prompt.")
                 raw_output = await self._run_sql_agent(
                     llm=self.llm_sql_primary,
-                    full_query=self._build_sql_user_prompt(message, force_execute=True),
+                    full_query=self._build_sql_user_prompt(
+                        message=message,
+                        user_id=user_id,
+                        start_date=start_date,
+                        end_date=end_date,
+                        force_execute=True,
+                    ),
                     custom_prefix=custom_prefix,
                     call_name="rag.read_sql_agent.primary_strict",
                 )
-                recovered = self._execute_embedded_sql_if_present(raw_output)
+                recovered = self._execute_embedded_sql_if_present(raw_output, user_id)
                 if recovered:
                     raw_output = recovered
             if self._is_non_answer_sql_output(raw_output):
                 logger.warning("Primary SQL strict retry still weak; switching to SQL fallback model.")
                 raw_output = await self._run_sql_agent(
                     llm=self.llm_sql_fallback,
-                    full_query=self._build_sql_user_prompt(message, force_execute=True),
+                    full_query=self._build_sql_user_prompt(
+                        message=message,
+                        user_id=user_id,
+                        start_date=start_date,
+                        end_date=end_date,
+                        force_execute=True,
+                    ),
                     custom_prefix=custom_prefix,
                     call_name="rag.read_sql_agent.fallback_strict",
                 )
-                recovered = self._execute_embedded_sql_if_present(raw_output)
+                recovered = self._execute_embedded_sql_if_present(raw_output, user_id)
                 if recovered:
                     raw_output = recovered
             if self._is_invalid_sql_output(raw_output):
@@ -191,14 +229,20 @@ class RAGSpecialist:
             if is_rate_limited_error(e):
                 logger.warning("Primary SQL model rate-limited; switching to SQL fallback model.")
                 try:
-                    full_query = self._build_sql_user_prompt(message, force_execute=True)
+                    full_query = self._build_sql_user_prompt(
+                        message=message,
+                        user_id=user_id,
+                        start_date=start_date,
+                        end_date=end_date,
+                        force_execute=True,
+                    )
                     raw_output = await self._run_sql_agent(
                         llm=self.llm_sql_fallback,
                         full_query=full_query,
                         custom_prefix=custom_prefix,
                         call_name="rag.read_sql_agent.fallback",
                     )
-                    recovered = self._execute_embedded_sql_if_present(raw_output)
+                    recovered = self._execute_embedded_sql_if_present(raw_output, user_id)
                     if recovered:
                         raw_output = recovered
                     if self._is_invalid_sql_output(raw_output):
@@ -243,11 +287,23 @@ class RAGSpecialist:
         return response["output"]
 
     @staticmethod
-    def _build_sql_user_prompt(message: str, force_execute: bool = False) -> str:
+    def _build_sql_user_prompt(
+        message: str,
+        user_id: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        force_execute: bool = False,
+    ) -> str:
         """Build user prompt for SQL agent with optional strict execution requirements."""
+        date_context = (
+            f"start_date={start_date or 'None'}, end_date={end_date or 'None'}"
+        )
         base = (
             f'{message} '
-            '(Provide a comprehensive list of categories and amounts if requested.)'
+            '(Provide a comprehensive list of categories and amounts if requested.) '
+            f'CURRENT_USER_ID="{user_id}". '
+            f'DATE_CONTEXT: {date_context}. '
+            'MANDATORY: scope results to CURRENT_USER_ID using "CreatedBy" filters.'
         )
         if not force_execute:
             return base
@@ -297,13 +353,16 @@ class RAGSpecialist:
         )
         return QueryResult(summary=msg, raw_text=raw_output or msg)
 
-    def _execute_embedded_sql_if_present(self, output: str) -> str | None:
+    def _execute_embedded_sql_if_present(self, output: str, user_id: str) -> str | None:
         """
         Recovery path: if agent returns a draft SQL query instead of executing it,
         extract SELECT SQL and execute it directly in read-only mode.
         """
         sql = self._extract_select_sql(output)
         if not sql:
+            return None
+        if not self._is_user_scoped_sql(sql, user_id):
+            logger.warning("Rejected embedded SQL without strict user scope.")
             return None
 
         db = SessionLocal()
@@ -350,6 +409,17 @@ class RAGSpecialist:
         if ";" in normalized:
             return None
         return f"{normalized};"
+
+    @staticmethod
+    def _is_user_scoped_sql(sql: str, user_id: str) -> bool:
+        """Require explicit CreatedBy=user_id predicate in direct SQL recovery mode."""
+        lowered = sql.lower()
+        escaped = user_id.replace("'", "''").lower()
+        if '"createdby"' not in lowered:
+            return False
+        if escaped not in lowered:
+            return False
+        return True
 
     # -----------------------------------------------------------------------
     # WRITE — Parse natural language into draft(s)

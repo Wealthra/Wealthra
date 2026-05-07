@@ -43,7 +43,13 @@ namespace Wealthra.Api.Controllers
                 }
             }
 
-            var response = await _copilotService.ChatAsync(request.Message, userId, authToken, cancellationToken);
+            var response = await _copilotService.ChatAsync(
+                request.Message,
+                userId,
+                request.StartDate,
+                request.EndDate,
+                authToken,
+                cancellationToken);
             await _usageDailyAggregateService.IncrementCopilotAsync(userId, cancellationToken);
             return Ok(response);
         }
@@ -52,6 +58,12 @@ namespace Wealthra.Api.Controllers
         {
             [System.Text.Json.Serialization.JsonPropertyName("message")]
             public string Message { get; set; } = string.Empty;
+
+            [System.Text.Json.Serialization.JsonPropertyName("startDate")]
+            public string? StartDate { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("endDate")]
+            public string? EndDate { get; set; }
         }
     }
 }

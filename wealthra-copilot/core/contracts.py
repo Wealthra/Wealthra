@@ -51,6 +51,8 @@ class ChatRequest(BaseModel):
     """Incoming chat request from the API layer."""
     message: str
     user_id: str
+    start_date: Optional[str] = None              # YYYY-MM-DD (inclusive)
+    end_date: Optional[str] = None                # YYYY-MM-DD (inclusive)
     auth_token: Optional[str] = None              # User JWT for forwarding to .NET API
     updated_batch: Optional['TransactionBatch'] = None  # Frontend-edited data to persist
 

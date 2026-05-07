@@ -6,7 +6,13 @@ namespace Wealthra.Application.Common.Interfaces
 {
     public interface ICopilotService
     {
-        Task<CopilotChatResponse> ChatAsync(string message, string userId, string? authToken = null, CancellationToken cancellationToken = default);
+        Task<CopilotChatResponse> ChatAsync(
+            string message,
+            string userId,
+            string? startDate = null,
+            string? endDate = null,
+            string? authToken = null,
+            CancellationToken cancellationToken = default);
     }
 
     public class CopilotChatResponse

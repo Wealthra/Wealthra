@@ -26,7 +26,13 @@ namespace Wealthra.Infrastructure.Services
             _configuration = configuration;
         }
 
-        public async Task<CopilotChatResponse> ChatAsync(string message, string userId, string? authToken = null, CancellationToken cancellationToken = default)
+        public async Task<CopilotChatResponse> ChatAsync(
+            string message,
+            string userId,
+            string? startDate = null,
+            string? endDate = null,
+            string? authToken = null,
+            CancellationToken cancellationToken = default)
         {
             var modelFromDb = await _runtimeAppSettings.GetAsync(AppSettingsKeys.AiDefaultChatModel, cancellationToken);
             var defaultChatModel = !string.IsNullOrWhiteSpace(modelFromDb)
@@ -40,6 +46,14 @@ namespace Wealthra.Infrastructure.Services
 
             // The python service expects message and user_id as query parameters in the POST request
             var url = $"/chat?message={Uri.EscapeDataString(message)}&user_id={Uri.EscapeDataString(userId)}";
+            if (!string.IsNullOrWhiteSpace(startDate))
+            {
+                url += $"&start_date={Uri.EscapeDataString(startDate)}";
+            }
+            if (!string.IsNullOrWhiteSpace(endDate))
+            {
+                url += $"&end_date={Uri.EscapeDataString(endDate)}";
+            }
             if (!string.IsNullOrWhiteSpace(defaultChatModel))
             {
                 url += $"&default_chat_model={Uri.EscapeDataString(defaultChatModel)}";

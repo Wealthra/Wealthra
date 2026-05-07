@@ -590,7 +590,11 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
         """Handle a read intent: fetch data and synthesize conversational response."""
         lang = session.language
         query_result = await self.rag_specialist.read(
-            request.message, request.user_id, lang
+            request.message,
+            request.user_id,
+            lang,
+            start_date=request.start_date,
+            end_date=request.end_date,
         )
 
         # Synthesize warm narrative from raw data
@@ -629,7 +633,11 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
 
         # Step 1: Fetch raw data
         raw_data = await self.rag_specialist.read(
-            request.message, request.user_id, lang
+            request.message,
+            request.user_id,
+            lang,
+            start_date=request.start_date,
+            end_date=request.end_date,
         )
 
         # Step 2: Consultant analysis (structured for frontend payload)
