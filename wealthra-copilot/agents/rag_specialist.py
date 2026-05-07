@@ -44,6 +44,32 @@ logger = logging.getLogger(__name__)
 # .NET API base URL (internal Docker network)
 _API_BASE_URL = "http://api:8080/api"
 _READ_TABLES = ["Expenses", "Incomes", "Categories"]
+_NON_ANSWER_SQL_PATTERNS = (
+    "i can see that there are tables",
+    "i should look at the schema",
+    "let me see what tables are available",
+    "need to look at the schema",
+    "what columns i can query",
+    "table schema",
+    "the query will look something like this",
+    "let's execute this query",
+)
+_SQL_ERROR_PATTERNS = (
+    "undefinedcolumn",
+    "column does not exist",
+    "psycopg2.errors",
+    "sqlalchemy.exc",
+    "error:",
+    "traceback",
+)
+_PLACEHOLDER_RESULT_PATTERNS = (
+    "kategori 1",
+    "kategori 2",
+    "kategori 3",
+    "category 1",
+    "category 2",
+    "category 3",
+)
 
 
 class RAGSpecialist:
@@ -112,19 +138,50 @@ class RAGSpecialist:
            - If target is English: NO Turkish, Chinese, Vietnamese, Japanese, Arabic, or any other language.
            - FORBIDDEN characters: any CJK ideographs, Vietnamese diacritics, Arabic script.
         8. Do not repeat the same number or fact more than once.
+        9. IMPORTANT SCHEMA:
+           - "Expenses"."CategoryId" references "Categories"."Id"
+           - JOIN MUST be: "Expenses"."CategoryId" = "Categories"."Id"
+           - Use "Expenses"."TransactionDate" for expense dates.
+           - There is no "Transactions" table in this context.
+        10. NEVER fabricate values. If a query fails, return a short error summary only.
         """
 
         try:
-            full_query = (
-                f"{message} "
-                "(Provide a comprehensive list of categories and amounts if requested)"
-            )
+            full_query = self._build_sql_user_prompt(message)
             raw_output = await self._run_sql_agent(
                 llm=self.llm_sql_primary,
                 full_query=full_query,
                 custom_prefix=custom_prefix,
                 call_name="rag.read_sql_agent.primary",
             )
+            recovered = self._execute_embedded_sql_if_present(raw_output)
+            if recovered:
+                raw_output = recovered
+            if self._is_non_answer_sql_output(raw_output):
+                logger.warning("Primary SQL model produced non-answer output; retrying with stricter prompt.")
+                raw_output = await self._run_sql_agent(
+                    llm=self.llm_sql_primary,
+                    full_query=self._build_sql_user_prompt(message, force_execute=True),
+                    custom_prefix=custom_prefix,
+                    call_name="rag.read_sql_agent.primary_strict",
+                )
+                recovered = self._execute_embedded_sql_if_present(raw_output)
+                if recovered:
+                    raw_output = recovered
+            if self._is_non_answer_sql_output(raw_output):
+                logger.warning("Primary SQL strict retry still weak; switching to SQL fallback model.")
+                raw_output = await self._run_sql_agent(
+                    llm=self.llm_sql_fallback,
+                    full_query=self._build_sql_user_prompt(message, force_execute=True),
+                    custom_prefix=custom_prefix,
+                    call_name="rag.read_sql_agent.fallback_strict",
+                )
+                recovered = self._execute_embedded_sql_if_present(raw_output)
+                if recovered:
+                    raw_output = recovered
+            if self._is_invalid_sql_output(raw_output):
+                logger.error("SQL agent returned invalid/fabricated output after retries.")
+                return self._build_read_failure_result(lang, raw_output)
 
             return QueryResult(
                 summary=raw_output,
@@ -134,16 +191,19 @@ class RAGSpecialist:
             if is_rate_limited_error(e):
                 logger.warning("Primary SQL model rate-limited; switching to SQL fallback model.")
                 try:
-                    full_query = (
-                        f"{message} "
-                        "(Provide a comprehensive list of categories and amounts if requested)"
-                    )
+                    full_query = self._build_sql_user_prompt(message, force_execute=True)
                     raw_output = await self._run_sql_agent(
                         llm=self.llm_sql_fallback,
                         full_query=full_query,
                         custom_prefix=custom_prefix,
                         call_name="rag.read_sql_agent.fallback",
                     )
+                    recovered = self._execute_embedded_sql_if_present(raw_output)
+                    if recovered:
+                        raw_output = recovered
+                    if self._is_invalid_sql_output(raw_output):
+                        logger.error("SQL fallback output invalid after rate-limit fallback.")
+                        return self._build_read_failure_result(lang, raw_output)
                     return QueryResult(
                         summary=raw_output,
                         raw_text=raw_output,
@@ -173,7 +233,7 @@ class RAGSpecialist:
             verbose=True,
             prefix=custom_prefix,
             use_query_checker=False,
-            max_iterations=4,
+            max_iterations=6,
         )
         response = await groq_invoke_with_retry(
             agent_executor,
@@ -181,6 +241,115 @@ class RAGSpecialist:
             call_name,
         )
         return response["output"]
+
+    @staticmethod
+    def _build_sql_user_prompt(message: str, force_execute: bool = False) -> str:
+        """Build user prompt for SQL agent with optional strict execution requirements."""
+        base = (
+            f'{message} '
+            '(Provide a comprehensive list of categories and amounts if requested.)'
+        )
+        if not force_execute:
+            return base
+        return (
+            f"{base} "
+            "IMPORTANT: You MUST execute a final sql_db_query before answering. "
+            "Do NOT stop at listing tables or schemas. "
+            "Return only the final data answer with concrete numbers."
+        )
+
+    @staticmethod
+    def _is_non_answer_sql_output(output: str) -> bool:
+        """Detect planning/meta outputs that did not actually answer the question with data."""
+        lowered = (output or "").strip().lower()
+        if not lowered:
+            return True
+        if any(p in lowered for p in _NON_ANSWER_SQL_PATTERNS):
+            return True
+        if "```sql" in lowered:
+            return True
+        # If no numeric signal exists, it is often a planning response.
+        has_number = bool(re.search(r"\d", lowered))
+        return not has_number
+
+    @staticmethod
+    def _is_invalid_sql_output(output: str) -> bool:
+        """
+        Detect outputs that should never be used for user-facing analytics:
+        SQL/runtime errors or obvious placeholder/fabricated category labels.
+        """
+        lowered = (output or "").strip().lower()
+        if not lowered:
+            return True
+        if any(p in lowered for p in _SQL_ERROR_PATTERNS):
+            return True
+        if any(p in lowered for p in _PLACEHOLDER_RESULT_PATTERNS):
+            return True
+        return False
+
+    @staticmethod
+    def _build_read_failure_result(lang: str, raw_output: str) -> QueryResult:
+        """Return a safe, non-fabricated read response when SQL output is invalid."""
+        msg = (
+            "Sorguyu güvenilir şekilde tamamlayamadım. Lütfen tekrar deneyin veya soruyu daha net yazın."
+            if lang == "tr"
+            else "I couldn't complete the query reliably. Please try again or rephrase your request."
+        )
+        return QueryResult(summary=msg, raw_text=raw_output or msg)
+
+    def _execute_embedded_sql_if_present(self, output: str) -> str | None:
+        """
+        Recovery path: if agent returns a draft SQL query instead of executing it,
+        extract SELECT SQL and execute it directly in read-only mode.
+        """
+        sql = self._extract_select_sql(output)
+        if not sql:
+            return None
+
+        db = SessionLocal()
+        try:
+            result = db.execute(text(sql))
+            rows = result.fetchall()
+            columns = list(result.keys())
+            if not rows:
+                return "Query executed successfully but returned no rows."
+
+            preview_rows = rows[:20]
+            lines = [f"Columns: {', '.join(columns)}", "Rows:"]
+            for row in preview_rows:
+                values = [str(v) for v in row]
+                lines.append(" | ".join(values))
+            if len(rows) > 20:
+                lines.append(f"... ({len(rows) - 20} more rows)")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.warning("Embedded SQL execution failed: %s", e)
+            return None
+        finally:
+            db.close()
+
+    @staticmethod
+    def _extract_select_sql(output: str) -> str | None:
+        """Extract first SELECT statement from model text."""
+        text_blob = (output or "").strip()
+        if not text_blob:
+            return None
+
+        fence_match = re.search(r"```sql\s*(.*?)```", text_blob, flags=re.IGNORECASE | re.DOTALL)
+        candidate = fence_match.group(1).strip() if fence_match else None
+        if not candidate:
+            select_match = re.search(r"(select\s+.*?;)", text_blob, flags=re.IGNORECASE | re.DOTALL)
+            candidate = select_match.group(1).strip() if select_match else None
+        if not candidate:
+            return None
+
+        normalized = candidate.strip().rstrip(";")
+        if not normalized.lower().startswith("select"):
+            return None
+        # Disallow multi-statement SQL for safety.
+        if ";" in normalized:
+            return None
+        return f"{normalized};"
 
     # -----------------------------------------------------------------------
     # WRITE — Parse natural language into draft(s)
