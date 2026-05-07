@@ -3,7 +3,7 @@ uvicorn
 sqlalchemy
 psycopg2-binary
 langchain
-langchain-groq
+langchain-google-genai
 langchain-community
 python-dotenv
 pydantic

@@ -19,10 +19,10 @@ Handles all database interactions through two modes:
 import re
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 import httpx
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 from sqlalchemy import text
@@ -100,19 +100,19 @@ class RAGSpecialist:
         sql_primary_model = model_sql_primary or settings.MODEL_SQL_PRIMARY
         sql_fallback_model = model_sql_fallback or settings.MODEL_SQL_FALLBACK
         # Fast model: structured extraction for write drafts
-        self.llm_fast = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=fast_model,
+        self.llm_fast = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=fast_model,
         ).with_structured_output(TransactionBatch)
         # Primary SQL model: high-throughput read/query planning.
-        self.llm_sql_primary = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=sql_primary_model,
+        self.llm_sql_primary = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=sql_primary_model,
         )
         # Fallback SQL model: used when primary model is rate limited.
-        self.llm_sql_fallback = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=sql_fallback_model,
+        self.llm_sql_fallback = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=sql_fallback_model,
         )
         # Keep SQL agent context narrowly scoped to financial tables.
         self.db = SQLDatabase.from_uri(
@@ -331,7 +331,7 @@ class RAGSpecialist:
 
     async def _run_sql_agent(
         self,
-        llm: ChatGroq,
+        llm: Any,
         full_query: str,
         custom_prefix: str,
         call_name: str,

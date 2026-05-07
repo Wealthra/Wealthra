@@ -24,10 +24,10 @@ KEY DESIGN RULE — Write-Priority Gate:
 
 import re
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import date
 
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from core.config import settings
 from core.session import SessionStore
@@ -49,6 +49,35 @@ from agents.rag_specialist import RAGSpecialist
 from agents.consultant import ConsultantSpecialist
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_text_content(content: Any) -> str:
+    """Normalize LLM content payloads (str/list/dict) into plain text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text_value = item.get("text")
+                if isinstance(text_value, str):
+                    parts.append(text_value)
+                else:
+                    parts.append(str(item))
+            else:
+                text_attr = getattr(item, "text", None)
+                if isinstance(text_attr, str):
+                    parts.append(text_attr)
+                else:
+                    parts.append(str(item))
+        return "\n".join(p for p in parts if p).strip()
+    if isinstance(content, dict):
+        text_value = content.get("text")
+        if isinstance(text_value, str):
+            return text_value
+    return str(content)
 
 
 # ---------------------------------------------------------------------------
@@ -196,14 +225,14 @@ class Orchestrator:
         fast_model = model_fast or settings.MODEL_FAST
         reasoning_model = model_reasoning or settings.MODEL_REASONING
         # Fast model: intent classification, small talk, JSON extraction
-        self.llm_fast = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=fast_model,
+        self.llm_fast = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=fast_model,
         )
         # Reasoning model: narrative synthesis, complex analysis
-        self.llm_reasoning = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=reasoning_model,
+        self.llm_reasoning = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=reasoning_model,
         )
         self.session_store = SessionStore()
         # SQL read path is intentionally decoupled from chat model to avoid TPM contention.
@@ -306,7 +335,8 @@ Return ONLY the category name (write, read, hybrid, or smalltalk). Nothing else.
         response = await groq_invoke_with_retry(
             self.llm_fast, prompt, "orchestrator.intent_classification"
         )
-        raw = response.content.strip().lower().strip('"').strip("'")
+        raw_text = _extract_text_content(response.content)
+        raw = raw_text.strip().lower().strip('"').strip("'")
 
         try:
             return IntentType(raw)
@@ -724,7 +754,7 @@ Task:
 
         return ChatResponse(
             type=ResponseType.ADVISORY,
-            message=response.content,
+            message=_extract_text_content(response.content),
             language=lang,
         )
 
@@ -802,7 +832,7 @@ Output ONLY the final conversational message. No JSON, no markdown fences, no me
         response = await groq_invoke_with_retry(
             self.llm_reasoning, prompt, "orchestrator.narrative_synthesis"
         )
-        return response.content.strip()
+        return _extract_text_content(response.content).strip()
 
     # ===================================================================
     # UTILITY: Confirmation / Cancellation detection

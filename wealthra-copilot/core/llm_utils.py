@@ -45,7 +45,7 @@ async def _respect_min_interval() -> None:
 
 async def groq_invoke_with_retry(llm: Any, payload: Any, call_name: str) -> Any:
     """
-    Shared guard for all Groq calls:
+    Shared guard for all LLM calls:
       1) small global throttle to prevent bursty request spikes
       2) bounded retry with exponential backoff on rate limits
     """
@@ -67,7 +67,7 @@ async def groq_invoke_with_retry(llm: Any, payload: Any, call_name: str) -> Any:
             attempt += 1
 
             logger.warning(
-                "Groq rate limit during %s (attempt %s/%s). Retrying in %.2fs",
+                "LLM rate limit during %s (attempt %s/%s). Retrying in %.2fs",
                 call_name,
                 attempt,
                 max_retries,

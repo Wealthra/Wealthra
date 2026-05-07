@@ -37,12 +37,12 @@ namespace Wealthra.Infrastructure.Services
             var modelFromDb = await _runtimeAppSettings.GetAsync(AppSettingsKeys.AiDefaultChatModel, cancellationToken);
             var defaultChatModel = !string.IsNullOrWhiteSpace(modelFromDb)
                 ? modelFromDb!
-                : _configuration["Groq:Model"];
+                : _configuration["Gemini:Model"] ?? "gemini-2.5-pro";
 
             var enrichmentFromDb = await _runtimeAppSettings.GetAsync(AppSettingsKeys.AiEnrichmentModel, cancellationToken);
             var enrichmentModel = !string.IsNullOrWhiteSpace(enrichmentFromDb)
                 ? enrichmentFromDb!
-                : _configuration["Groq:Model"];
+                : _configuration["Gemini:FastModel"] ?? "gemini-2.0-flash";
 
             // The python service expects message and user_id as query parameters in the POST request
             var url = $"/chat?message={Uri.EscapeDataString(message)}&user_id={Uri.EscapeDataString(userId)}";

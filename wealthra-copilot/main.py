@@ -52,6 +52,25 @@ app = FastAPI(
 _orchestrators: dict[str, Orchestrator] = {}
 
 
+def _normalize_model_or_default(candidate: Optional[str], default_model: str, slot_name: str) -> str:
+    """Allow only Gemini model identifiers; fallback safely for legacy values."""
+    if not candidate or not candidate.strip():
+        return default_model
+
+    model = candidate.strip()
+    lowered = model.lower()
+    if lowered.startswith("gemini-") or lowered.startswith("models/gemini-"):
+        return model
+
+    logger.warning(
+        "Ignoring unsupported %s model '%s' for Gemini backend. Falling back to '%s'.",
+        slot_name,
+        model,
+        default_model,
+    )
+    return default_model
+
+
 def _get_orchestrator(chat_model: str, enrichment_model: str) -> Orchestrator:
     """Lazy-init orchestrator instances keyed by both models."""
     key = f"{chat_model}::{enrichment_model}"
@@ -105,15 +124,15 @@ async def chat(
         auth_token=auth_token,
     )
 
-    c_model = (
-        default_chat_model.strip()
-        if default_chat_model and default_chat_model.strip()
-        else settings.MODEL_REASONING
+    c_model = _normalize_model_or_default(
+        default_chat_model,
+        settings.MODEL_REASONING,
+        "default_chat_model",
     )
-    e_model = (
-        enrichment_model.strip()
-        if enrichment_model and enrichment_model.strip()
-        else settings.MODEL_FAST
+    e_model = _normalize_model_or_default(
+        enrichment_model,
+        settings.MODEL_FAST,
+        "enrichment_model",
     )
 
     orchestrator = _get_orchestrator(chat_model=c_model, enrichment_model=e_model)

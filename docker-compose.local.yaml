@@ -85,10 +85,10 @@ services:
     container_name: wealthra_copilot_local
     restart: unless-stopped
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - DATABASE_URL=postgresql://wealthra_user:YourStrongDbPassword123!@db:5432/wealthra_db
-      - MODEL_FAST=${COPILOT_MODEL_FAST:-qwen/qwen3-32b}
-      - MODEL_REASONING=${COPILOT_MODEL_REASONING:-groq/compound}
+      - MODEL_FAST=${COPILOT_MODEL_FAST:-gemini-3-flash-preview}
+      - MODEL_REASONING=${COPILOT_MODEL_REASONING:-gemini-3-flash-preview}
     depends_on:
       - db
     ports:

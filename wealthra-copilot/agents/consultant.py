@@ -12,7 +12,7 @@ over data that has been pre-fetched and injected by the Orchestrator.
 
 from typing import Optional
 
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from core.config import settings
 from core.llm_utils import groq_invoke_with_retry
@@ -27,9 +27,9 @@ class ConsultantSpecialist:
 
     def __init__(self, model_reasoning: str | None = None):
         reasoning_model = model_reasoning or settings.MODEL_REASONING
-        self.llm = ChatGroq(
-            api_key=settings.GROQ_API_KEY,
-            model_name=reasoning_model,
+        self.llm = ChatGoogleGenerativeAI(
+            google_api_key=settings.LLM_API_KEY,
+            model=reasoning_model,
         ).with_structured_output(ConsultantAdvice)
 
     async def analyze(
