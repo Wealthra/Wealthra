@@ -14,7 +14,7 @@ _NEXT_ALLOWED_AT = 0.0
 _RETRY_AFTER_SECONDS = re.compile(r"retry after\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 
 
-def _is_rate_limited_error(exc: Exception) -> bool:
+def is_rate_limited_error(exc: Exception) -> bool:
     text = str(exc).lower()
     return "429" in text or "too many requests" in text or "rate limit" in text
 
@@ -58,7 +58,7 @@ async def groq_invoke_with_retry(llm: Any, payload: Any, call_name: str) -> Any:
         try:
             return llm.invoke(payload)
         except Exception as exc:
-            if attempt >= max_retries or not _is_rate_limited_error(exc):
+            if attempt >= max_retries or not is_rate_limited_error(exc):
                 raise
 
             retry_after = _extract_retry_after(exc)

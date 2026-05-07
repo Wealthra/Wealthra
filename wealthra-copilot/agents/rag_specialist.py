@@ -28,7 +28,7 @@ from sqlalchemy import text
 
 from core.config import settings
 from core.database import SessionLocal
-from core.llm_utils import groq_invoke_with_retry
+from core.llm_utils import groq_invoke_with_retry, is_rate_limited_error
 from core.contracts import (
     TransactionDraft,
     TransactionBatch,
@@ -49,18 +49,29 @@ _READ_TABLES = ["Expenses", "Incomes", "Categories"]
 class RAGSpecialist:
     """The Data Layer — handles all database interactions."""
 
-    def __init__(self, model_fast: str | None = None, model_reasoning: str | None = None):
+    def __init__(
+        self,
+        model_fast: str | None = None,
+        model_sql_primary: str | None = None,
+        model_sql_fallback: str | None = None,
+    ):
         fast_model = model_fast or settings.MODEL_FAST
-        reasoning_model = model_reasoning or settings.MODEL_REASONING
+        sql_primary_model = model_sql_primary or settings.MODEL_SQL_PRIMARY
+        sql_fallback_model = model_sql_fallback or settings.MODEL_SQL_FALLBACK
         # Fast model: structured extraction for write drafts
         self.llm_fast = ChatGroq(
             api_key=settings.GROQ_API_KEY,
             model_name=fast_model,
         ).with_structured_output(TransactionBatch)
-        # Reasoning model: SQL agent for data queries
-        self.llm_reasoning = ChatGroq(
+        # Primary SQL model: high-throughput read/query planning.
+        self.llm_sql_primary = ChatGroq(
             api_key=settings.GROQ_API_KEY,
-            model_name=reasoning_model,
+            model_name=sql_primary_model,
+        )
+        # Fallback SQL model: used when primary model is rate limited.
+        self.llm_sql_fallback = ChatGroq(
+            api_key=settings.GROQ_API_KEY,
+            model_name=sql_fallback_model,
         )
         # Keep SQL agent context narrowly scoped to financial tables.
         self.db = SQLDatabase.from_uri(
@@ -104,32 +115,41 @@ class RAGSpecialist:
         """
 
         try:
-            agent_executor = create_sql_agent(
-                self.llm_reasoning,
-                db=self.db,
-                agent_type="openai-tools",
-                verbose=True,
-                prefix=custom_prefix,
-                use_query_checker=False,
-                max_iterations=4,
-            )
-
             full_query = (
                 f"{message} "
                 "(Provide a comprehensive list of categories and amounts if requested)"
             )
-            response = await groq_invoke_with_retry(
-                agent_executor,
-                {"input": full_query},
-                "rag.read_sql_agent",
+            raw_output = await self._run_sql_agent(
+                llm=self.llm_sql_primary,
+                full_query=full_query,
+                custom_prefix=custom_prefix,
+                call_name="rag.read_sql_agent.primary",
             )
-            raw_output = response["output"]
 
             return QueryResult(
                 summary=raw_output,
                 raw_text=raw_output,
             )
         except Exception as e:
+            if is_rate_limited_error(e):
+                logger.warning("Primary SQL model rate-limited; switching to SQL fallback model.")
+                try:
+                    full_query = (
+                        f"{message} "
+                        "(Provide a comprehensive list of categories and amounts if requested)"
+                    )
+                    raw_output = await self._run_sql_agent(
+                        llm=self.llm_sql_fallback,
+                        full_query=full_query,
+                        custom_prefix=custom_prefix,
+                        call_name="rag.read_sql_agent.fallback",
+                    )
+                    return QueryResult(
+                        summary=raw_output,
+                        raw_text=raw_output,
+                    )
+                except Exception as fallback_error:
+                    logger.error("RAG Read fallback failed: %s", fallback_error)
             logger.error("RAG Read failed: %s", e)
             error_msg = (
                 "Veritabanı sorgusu sırasında bir hata oluştu."
@@ -137,6 +157,30 @@ class RAGSpecialist:
                 else "An error occurred while querying the database."
             )
             return QueryResult(summary=error_msg, raw_text=str(e))
+
+    async def _run_sql_agent(
+        self,
+        llm: ChatGroq,
+        full_query: str,
+        custom_prefix: str,
+        call_name: str,
+    ) -> str:
+        """Build and execute a SQL agent call with shared safeguards."""
+        agent_executor = create_sql_agent(
+            llm,
+            db=self.db,
+            agent_type="openai-tools",
+            verbose=True,
+            prefix=custom_prefix,
+            use_query_checker=False,
+            max_iterations=4,
+        )
+        response = await groq_invoke_with_retry(
+            agent_executor,
+            {"input": full_query},
+            call_name,
+        )
+        return response["output"]
 
     # -----------------------------------------------------------------------
     # WRITE — Parse natural language into draft(s)

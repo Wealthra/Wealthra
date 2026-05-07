@@ -206,7 +206,8 @@ class Orchestrator:
             model_name=reasoning_model,
         )
         self.session_store = SessionStore()
-        self.rag_specialist = RAGSpecialist(model_fast=fast_model, model_reasoning=reasoning_model)
+        # SQL read path is intentionally decoupled from chat model to avoid TPM contention.
+        self.rag_specialist = RAGSpecialist(model_fast=fast_model)
         self.consultant = ConsultantSpecialist(model_reasoning=reasoning_model)
         self.lang_detector = LanguageDetector()
 

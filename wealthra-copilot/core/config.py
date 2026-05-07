@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # Default Chat Model: User conversations, analysis, narrative
     MODEL_REASONING: str = "llama-3.3-70b-versatile"
 
+    # SQL model tier: data-read agent primary + fallback
+    MODEL_SQL_PRIMARY: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    MODEL_SQL_FALLBACK: str = "llama-3.1-8b-instant"
+
     # ── Groq resiliency / rate-limit controls ───────────────────────────
     GROQ_MIN_INTERVAL_SECONDS: float = 0.8
     GROQ_MAX_RETRIES: int = 4
