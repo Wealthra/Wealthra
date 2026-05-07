@@ -87,6 +87,35 @@ _MONTH_ALIASES = {
 }
 
 
+def _extract_text_content(content: Any) -> str:
+    """Normalize LLM/tool output payloads (str/list/dict) into plain text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text_value = item.get("text")
+                if isinstance(text_value, str):
+                    parts.append(text_value)
+                else:
+                    parts.append(str(item))
+            else:
+                text_attr = getattr(item, "text", None)
+                if isinstance(text_attr, str):
+                    parts.append(text_attr)
+                else:
+                    parts.append(str(item))
+        return "\n".join(p for p in parts if p).strip()
+    if isinstance(content, dict):
+        text_value = content.get("text")
+        if isinstance(text_value, str):
+            return text_value
+    return str(content)
+
+
 class RAGSpecialist:
     """The Data Layer — handles all database interactions."""
 
@@ -351,7 +380,7 @@ class RAGSpecialist:
             {"input": full_query},
             call_name,
         )
-        return response["output"]
+        return _extract_text_content(response.get("output"))
 
     @staticmethod
     def _build_sql_user_prompt(
